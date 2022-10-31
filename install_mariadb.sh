@@ -47,7 +47,9 @@ yum install mariadb-server -y ;
 #
 # 2.4、安装完成
 #
-#
+#   source  /mnt/create_tb.sql;
+
+
 #
 
 systemctl start mariadb;
