@@ -21,11 +21,6 @@ bootstrap.init_app(app)
 
 @app.route("/<onetype>",methods=["GET","POST"])
 def pagination_index(onetype):
-    # onetype_ret = None
-    # if onetype == "=Golang":
-    #     onetype_ret = "='Go'"
-    # elif onetype == "C/C++":
-    #     onetype_ret = "in ('C','C++')"
     if onetype == "Others":
         onetype_ret = "not in ('Python','Java','Go','JavaScript','PHP','C#','Rust','R','Shell','lua','Ruby','Perl','Swift','Julia','TypeScript','Vue','C','C++')"
     else:
@@ -50,10 +45,19 @@ def pagination_index(onetype):
     for item in data:
         item["new_infos"] = item["infos"].split("https://github.com/")[1]
         data_list.append(item)
+
+    data_list_html = []
+
+    for item in data_list:
+        item["infos_html"] = '<td href="{0}">{0}</td>'.format(item["infos"])
+        item["new_infos_html"] = '<td href="/{0}">{0}</td>'.format(item["new_infos"])
+        item["weight_html"] = '<td href="/{0}">{1}</td>'.format(item["new_infos"], item["weight"])
+        item["stars_num_html"] = '<td href="/{0}">{1}</td>'.format(item["new_infos"], item["stars_num"])
+        data_list_html.append(item)
 #  <td href="http://baidu.com">{{ row.new_infos }}</td>
     # [{'infos': 'https://github.com/pallets/jinja', 'language_': 'Python', 'weight': '100.0%', 'stars_num': '89000', 'new_infos': 'pallets/jinja'},
     set_list = []
-    for item in data_list:
+    for item in data_list_html:
         if item not in set_list:
             set_list.append(item)
     [set_list.append(x) for x in data if x not in set_list]
@@ -69,6 +73,7 @@ def pagination_index(onetype):
 # ok
 @app.route("/")
 def homepage():
+    pass
     return render_template("homepage.html")
 
 # 单一语言页面
@@ -83,3 +88,18 @@ def homepage():
 ### 路由管理
 if __name__ == '__main__':
     app.run(debug=True,port=8888,threaded=True)
+
+
+# data = [{'infos': 'https://github.com/pallets/jinja', 'language_': 'Python', 'weight': '100.0%', 'stars_num': '89000'},{'infos': 'https://github.com/pallets/jinja', 'language_': 'Python', 'weight': '100.0%', 'stars_num': '819000'}]
+# 
+# data_list = []
+# for item in data:
+#     item["new_infos"] = item["infos"].split("https://github.com/")[1]
+#     data_list.append(item)
+# 
+# #  <td href="http://baidu.com">{{ row.new_infos }}</td>
+# #  <td href="/pallets/jinja">pallets/jinja</td>
+# 
+# 
+# for item in data_list_html:
+#     print(item)
