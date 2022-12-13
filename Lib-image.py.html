@@ -1,0 +1,394 @@
+{% extends "Lib-template.html" %} 
+{% block body %} 
+
+<div><a class="previous"  style="text-align: left;" href="/detail/Lib-base.py.html">Previous : base.py</a>&nbsp<a class="next"   style="text-align: right;" href="/detail/Lib-multipart.py.html">Next : multipart.py</a></div><br>
+<div class="codehilite"><pre><span></span><code><span class="sd">&quot;&quot;&quot;Module for parsing and testing package version predicate strings.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">distutils.version</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+
+
+<span class="n">re_validPackage</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;(?i)^\s*([a-z_]\w*(?:\.[a-z_]\w*)*)(.*)&quot;</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">ASCII</span><span class="p">)</span>
+<span class="c1"># (package) (rest)</span>
+
+<span class="n">re_paren</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^\s*\((.*)\)\s*$&quot;</span><span class="p">)</span> <span class="c1"># (list) inside of parentheses</span>
+<span class="n">re_splitComparison</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^\s*(&lt;=|&gt;=|&lt;|&gt;|!=|==)\s*([^\s,]+)\s*$&quot;</span><span class="p">)</span>
+<span class="c1"># (comp) (version)</span>
+
+
+<span class="k">def</span> <span class="nf">splitUp</span><span class="p">(</span><span class="n">pred</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Parse a single version comparison.</span>
+
+<span class="sd">    Return (comparison string, StrictVersion)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">re_splitComparison</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">pred</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">res</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;bad package restriction syntax: </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">pred</span><span class="p">)</span>
+    <span class="n">comp</span><span class="p">,</span> <span class="n">verStr</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">comp</span><span class="p">,</span> <span class="n">distutils</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">StrictVersion</span><span class="p">(</span><span class="n">verStr</span><span class="p">))</span>
+
+<span class="n">compmap</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;&lt;&quot;</span><span class="p">:</span> <span class="n">operator</span><span class="o">.</span><span class="n">lt</span><span class="p">,</span> <span class="s2">&quot;&lt;=&quot;</span><span class="p">:</span> <span class="n">operator</span><span class="o">.</span><span class="n">le</span><span class="p">,</span> <span class="s2">&quot;==&quot;</span><span class="p">:</span> <span class="n">operator</span><span class="o">.</span><span class="n">eq</span><span class="p">,</span>
+           <span class="s2">&quot;&gt;&quot;</span><span class="p">:</span> <span class="n">operator</span><span class="o">.</span><span class="n">gt</span><span class="p">,</span> <span class="s2">&quot;&gt;=&quot;</span><span class="p">:</span> <span class="n">operator</span><span class="o">.</span><span class="n">ge</span><span class="p">,</span> <span class="s2">&quot;!=&quot;</span><span class="p">:</span> <span class="n">operator</span><span class="o">.</span><span class="n">ne</span><span class="p">}</span>
+
+<span class="k">class</span> <span class="nc">VersionPredicate</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Parse and test package version predicates.</span>
+
+<span class="sd">    &gt;&gt;&gt; v = VersionPredicate(&#39;pyepat.abc (&gt;1.0, &lt;3333.3a1, !=1555.1b3)&#39;)</span>
+
+<span class="sd">    The `name` attribute provides the full dotted name that is given::</span>
+
+<span class="sd">    &gt;&gt;&gt; v.name</span>
+<span class="sd">    &#39;pyepat.abc&#39;</span>
+
+<span class="sd">    The str() of a `VersionPredicate` provides a normalized</span>
+<span class="sd">    human-readable version of the expression::</span>
+
+<span class="sd">    &gt;&gt;&gt; print(v)</span>
+<span class="sd">    pyepat.abc (&gt; 1.0, &lt; 3333.3a1, != 1555.1b3)</span>
+
+<span class="sd">    The `satisfied_by()` method can be used to determine with a given</span>
+<span class="sd">    version number is included in the set described by the version</span>
+<span class="sd">    restrictions::</span>
+
+<span class="sd">    &gt;&gt;&gt; v.satisfied_by(&#39;1.1&#39;)</span>
+<span class="sd">    True</span>
+<span class="sd">    &gt;&gt;&gt; v.satisfied_by(&#39;1.4&#39;)</span>
+<span class="sd">    True</span>
+<span class="sd">    &gt;&gt;&gt; v.satisfied_by(&#39;1.0&#39;)</span>
+<span class="sd">    False</span>
+<span class="sd">    &gt;&gt;&gt; v.satisfied_by(&#39;4444.4&#39;)</span>
+<span class="sd">    False</span>
+<span class="sd">    &gt;&gt;&gt; v.satisfied_by(&#39;1555.1b3&#39;)</span>
+<span class="sd">    False</span>
+
+<span class="sd">    `VersionPredicate` is flexible in accepting extra whitespace::</span>
+
+<span class="sd">    &gt;&gt;&gt; v = VersionPredicate(&#39; pat( ==  0.1  )  &#39;)</span>
+<span class="sd">    &gt;&gt;&gt; v.name</span>
+<span class="sd">    &#39;pat&#39;</span>
+<span class="sd">    &gt;&gt;&gt; v.satisfied_by(&#39;0.1&#39;)</span>
+<span class="sd">    True</span>
+<span class="sd">    &gt;&gt;&gt; v.satisfied_by(&#39;0.2&#39;)</span>
+<span class="sd">    False</span>
+
+<span class="sd">    If any version numbers passed in do not conform to the</span>
+<span class="sd">    restrictions of `StrictVersion`, a `ValueError` is raised::</span>
+
+<span class="sd">    &gt;&gt;&gt; v = VersionPredicate(&#39;p1.p2.p3.p4(&gt;=1.0, &lt;=1.3a1, !=1.2zb3)&#39;)</span>
+<span class="sd">    Traceback (most recent call last):</span>
+<span class="sd">      ...</span>
+<span class="sd">    ValueError: invalid version number &#39;1.2zb3&#39;</span>
+
+<span class="sd">    It the module or package name given does not conform to what&#39;s</span>
+<span class="sd">    allowed as a legal module or package name, `ValueError` is</span>
+<span class="sd">    raised::</span>
+
+<span class="sd">    &gt;&gt;&gt; v = VersionPredicate(&#39;foo-bar&#39;)</span>
+<span class="sd">    Traceback (most recent call last):</span>
+<span class="sd">      ...</span>
+<span class="sd">    ValueError: expected parenthesized list: &#39;-bar&#39;</span>
+
+<span class="sd">    &gt;&gt;&gt; v = VersionPredicate(&#39;foo bar (12.21)&#39;)</span>
+<span class="sd">    Traceback (most recent call last):</span>
+<span class="sd">      ...</span>
+<span class="sd">    ValueError: expected parenthesized list: &#39;bar (12.21)&#39;</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">versionPredicateStr</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parse a version predicate string.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Fields:</span>
+        <span class="c1">#    name:  package name</span>
+        <span class="c1">#    pred:  list of (comparison string, StrictVersion)</span>
+
+        <span class="n">versionPredicateStr</span> <span class="o">=</span> <span class="n">versionPredicateStr</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">versionPredicateStr</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;empty package restriction&quot;</span><span class="p">)</span>
+        <span class="n">match</span> <span class="o">=</span> <span class="n">re_validPackage</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">versionPredicateStr</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;bad package name in </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">versionPredicateStr</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">paren</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+        <span class="n">paren</span> <span class="o">=</span> <span class="n">paren</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">paren</span><span class="p">:</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">re_paren</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">paren</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;expected parenthesized list: </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">paren</span><span class="p">)</span>
+            <span class="nb">str</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pred</span> <span class="o">=</span> <span class="p">[</span><span class="n">splitUp</span><span class="p">(</span><span class="n">aPred</span><span class="p">)</span> <span class="k">for</span> <span class="n">aPred</span> <span class="ow">in</span> <span class="nb">str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">pred</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;empty parenthesized list in </span><span class="si">%r</span><span class="s2">&quot;</span>
+                                 <span class="o">%</span> <span class="n">versionPredicateStr</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pred</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pred</span><span class="p">:</span>
+            <span class="n">seq</span> <span class="o">=</span> <span class="p">[</span><span class="n">cond</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">ver</span><span class="p">)</span> <span class="k">for</span> <span class="n">cond</span><span class="p">,</span> <span class="n">ver</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pred</span><span class="p">]</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot; (&quot;</span> <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;)&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+
+    <span class="k">def</span> <span class="nf">satisfied_by</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">version</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;True if version is compatible with all the predicates in self.</span>
+<span class="sd">        The parameter version must be acceptable to the StrictVersion</span>
+<span class="sd">        constructor.  It may be either a string or StrictVersion.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">cond</span><span class="p">,</span> <span class="n">ver</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pred</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">compmap</span><span class="p">[</span><span class="n">cond</span><span class="p">](</span><span class="n">version</span><span class="p">,</span> <span class="n">ver</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+
+<span class="n">_provision_rx</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="k">def</span> <span class="nf">split_provision</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return the name and optional version number of a provision.</span>
+
+<span class="sd">    The version number, if given, will be returned as a `StrictVersion`</span>
+<span class="sd">    instance, otherwise it will be `None`.</span>
+
+<span class="sd">    &gt;&gt;&gt; split_provision(&#39;mypkg&#39;)</span>
+<span class="sd">    (&#39;mypkg&#39;, None)</span>
+<span class="sd">    &gt;&gt;&gt; split_provision(&#39; mypkg( 1.2 ) &#39;)</span>
+<span class="sd">    (&#39;mypkg&#39;, StrictVersion (&#39;1.2&#39;))</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_provision_rx</span>
+    <span class="k">if</span> <span class="n">_provision_rx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_provision_rx</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+            <span class="sa">r</span><span class="s2">&quot;([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)(?:\s*\(\s*([^)\s]+)\s*\))?$&quot;</span><span class="p">,</span>
+            <span class="n">re</span><span class="o">.</span><span class="n">ASCII</span><span class="p">)</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">_provision_rx</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">m</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;illegal provides specification: </span><span class="si">%r</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">value</span><span class="p">)</span>
+    <span class="n">ver</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="ow">or</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">ver</span><span class="p">:</span>
+        <span class="n">ver</span> <span class="o">=</span> <span class="n">distutils</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">StrictVersion</span><span class="p">(</span><span class="n">ver</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">ver</span>
+</code></pre></div>
+
+{% endblock %}
+{% extends "Lib-template.html" %} 
+{% block body %} 
+
+<div><a class="previous"  style="text-align: left;" href="/detail/Lib-IcoImagePlugin.py.html">Previous : IcoImagePlugin.py</a>&nbsp<a class="next"   style="text-align: right;" href="/detail/Lib-ImageChops.py.html">Next : ImageChops.py</a></div><br>
+<div class="codehilite"><pre><span></span><code><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Tests for hyperlink.hypothesis.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">hypothesis</span>
+
+    <span class="k">del</span> <span class="n">hypothesis</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="k">pass</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">string</span> <span class="kn">import</span> <span class="n">digits</span>
+    <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Text</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">unittest.mock</span> <span class="kn">import</span> <span class="n">patch</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">mock</span> <span class="kn">import</span> <span class="n">patch</span>  <span class="c1"># type: ignore[misc]</span>
+
+    <span class="kn">from</span> <span class="nn">hypothesis</span> <span class="kn">import</span> <span class="n">given</span><span class="p">,</span> <span class="n">settings</span>
+    <span class="kn">from</span> <span class="nn">hypothesis.strategies</span> <span class="kn">import</span> <span class="n">SearchStrategy</span><span class="p">,</span> <span class="n">data</span>
+
+    <span class="kn">from</span> <span class="nn">idna</span> <span class="kn">import</span> <span class="n">IDNAError</span><span class="p">,</span> <span class="n">check_label</span><span class="p">,</span> <span class="n">encode</span> <span class="k">as</span> <span class="n">idna_encode</span>
+
+    <span class="kn">from</span> <span class="nn">.common</span> <span class="kn">import</span> <span class="n">HyperlinkTestCase</span>
+    <span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">DecodedURL</span><span class="p">,</span> <span class="n">EncodedURL</span>
+    <span class="kn">from</span> <span class="nn">..hypothesis</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">DrawCallable</span><span class="p">,</span>
+        <span class="n">composite</span><span class="p">,</span>
+        <span class="n">decoded_urls</span><span class="p">,</span>
+        <span class="n">encoded_urls</span><span class="p">,</span>
+        <span class="n">hostname_labels</span><span class="p">,</span>
+        <span class="n">hostnames</span><span class="p">,</span>
+        <span class="n">idna_text</span><span class="p">,</span>
+        <span class="n">paths</span><span class="p">,</span>
+        <span class="n">port_numbers</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">class</span> <span class="nc">TestHypothesisStrategies</span><span class="p">(</span><span class="n">HyperlinkTestCase</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Tests for hyperlink.hypothesis.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="nd">@given</span><span class="p">(</span><span class="n">idna_text</span><span class="p">())</span>
+        <span class="k">def</span> <span class="nf">test_idna_text_valid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
+            <span class="c1"># type: (Text) -&gt; None</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            idna_text() generates IDNA-encodable text.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">idna_encode</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">IDNAError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="s2">&quot;Invalid IDNA text: </span><span class="si">{!r}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">text</span><span class="p">))</span>
+
+        <span class="nd">@given</span><span class="p">(</span><span class="n">data</span><span class="p">())</span>
+        <span class="k">def</span> <span class="nf">test_idna_text_min_max</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+            <span class="c1"># type: (SearchStrategy) -&gt; None</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            idna_text() raises AssertionError if min_size is &lt; 1.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">AssertionError</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">draw</span><span class="p">,</span> <span class="n">idna_text</span><span class="p">(</span><span class="n">min_size</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">AssertionError</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">draw</span><span class="p">,</span> <span class="n">idna_text</span><span class="p">(</span><span class="n">max_size</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+
+        <span class="nd">@given</span><span class="p">(</span><span class="n">port_numbers</span><span class="p">())</span>
+        <span class="k">def</span> <span class="nf">test_port_numbers_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
+            <span class="c1"># type: (int) -&gt; None</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            port_numbers() generates integers between 1 and 65535, inclusive.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertGreaterEqual</span><span class="p">(</span><span class="n">port</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertLessEqual</span><span class="p">(</span><span class="n">port</span><span class="p">,</span> <span class="mi">65535</span><span class="p">)</span>
+
+        <span class="nd">@given</span><span class="p">(</span><span class="n">port_numbers</span><span class="p">(</span><span class="n">allow_zero</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+        <span class="k">def</span> <span class="nf">test_port_numbers_bounds_allow_zero</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
+            <span class="c1"># type: (int) -&gt; None</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            port_numbers(allow_zero=True) generates integers between 0 and</span>
+<span class="sd">            65535, inclusive.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertGreaterEqual</span><span class="p">(</span><span class="n">port</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertLessEqual</span><span class="p">(</span><span class="n">port</span><span class="p">,</span> <span class="mi">65535</span><span class="p">)</span>
+
+        <span class="nd">@given</span><span class="p">(</span><span class="n">hostname_labels</span><span class="p">())</span>
+        <span class="k">def</span> <span class="nf">test_hostname_labels_valid_idn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">):</span>
+            <span class="c1"># type: (Text) -&gt; None</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            hostname_labels() generates IDN host name labels.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">check_label</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+                <span class="n">idna_encode</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">UnicodeError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="s2">&quot;Invalid IDN label: </span><span class="si">{!r}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">label</span><span class="p">))</span>
+
+        <span class="nd">@given</span><span class="p">(</span><span class="n">data</span><span class="p">())</span>
+        <span class="nd">@settings</span><span class="p">(</span><span class="n">max_examples</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">test_hostname_labels_long_idn_punycode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+            <span class="c1"># type: (SearchStrategy) -&gt; None</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            hostname_labels() handles case where idna_text() generates text</span>
+<span class="sd">            that encoded to punycode ends up as longer than allowed.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+
+            <span class="nd">@composite</span>
+            <span class="k">def</span> <span class="nf">mock_idna_text</span><span class="p">(</span><span class="n">draw</span><span class="p">,</span> <span class="n">min_size</span><span class="p">,</span> <span class="n">max_size</span><span class="p">):</span>
+                <span class="c1"># type: (DrawCallable, int, int) -&gt; Text</span>
+                <span class="c1"># We want a string that does not exceed max_size, but when</span>
+                <span class="c1"># encoded to punycode, does exceed max_size.</span>
+                <span class="c1"># So use a unicode character that is larger when encoded,</span>
+                <span class="c1"># &quot;á&quot; being a great example, and use it max_size times, which</span>
+                <span class="c1"># will be max_size * 3 in size when encoded.</span>
+                <span class="k">return</span> <span class="sa">u</span><span class="s2">&quot;</span><span class="se">\N{LATIN SMALL LETTER A WITH ACUTE}</span><span class="s2">&quot;</span> <span class="o">*</span> <span class="n">max_size</span>
+
+            <span class="k">with</span> <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;hyperlink.hypothesis.idna_text&quot;</span><span class="p">,</span> <span class="n">mock_idna_text</span><span class="p">):</span>
+                <span class="n">label</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="n">hostname_labels</span><span class="p">())</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">check_label</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+                    <span class="n">idna_encode</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">UnicodeError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                    <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span>
+                        <span class="s2">&quot;Invalid IDN label: </span><span class="si">{!r}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+                    <span class="p">)</span>
+
+        <span class="nd">@given</span><span class="p">(</span><span class="n">hostname_labels</span><span class="p">(</span><span class="n">allow_idn</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+        <span class="k">def</span> <span class="nf">test_hostname_labels_valid_ascii</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">):</span>
+            <span class="c1"># type: (Text) -&gt; None</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            hostname_labels() generates a ASCII host name labels.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">check_label</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+                <span class="n">label</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">UnicodeError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="s2">&quot;Invalid ASCII label: </span><span class="si">{!r}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">label</span><span class="p">))</span>
+
+        <span class="nd">@given</span><span class="p">(</span><span class="n">hostnames</span><span class="p">())</span>
+        <span class="k">def</span> <span class="nf">test_hostnames_idn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hostname</span><span class="p">):</span>
+            <span class="c1"># type: (Text) -&gt; None</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            hostnames() generates a IDN host names.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">hostname</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="sa">u</span><span class="s2">&quot;.&quot;</span><span class="p">):</span>
+                    <span class="n">check_label</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+                <span class="n">idna_encode</span><span class="p">(</span><span class="n">hostname</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">UnicodeError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span>
+                    <span class="s2">&quot;Invalid IDN host name: </span><span class="si">{!r}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">hostname</span><span class="p">)</span>
+                <span class="p">)</span>
+
+        <span class="nd">@given</span><span class="p">(</span><span class="n">hostnames</span><span class="p">(</span><span class="n">allow_leading_digit</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+        <span class="k">def</span> <span class="nf">test_hostnames_idn_nolead</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hostname</span><span class="p">):</span>
+            <span class="c1"># type: (Text) -&gt; None</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            hostnames(allow_leading_digit=False) generates a IDN host names</span>
+<span class="sd">            without leading digits.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">hostname</span> <span class="o">==</span> <span class="n">hostname</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="n">digits</span><span class="p">))</span>
+
+        <span class="nd">@given</span><span class="p">(</span><span class="n">hostnames</span><span class="p">(</span><span class="n">allow_idn</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+        <span class="k">def</span> <span class="nf">test_hostnames_ascii</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hostname</span><span class="p">):</span>
+            <span class="c1"># type: (Text) -&gt; None</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            hostnames() generates a ASCII host names.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">hostname</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="sa">u</span><span class="s2">&quot;.&quot;</span><span class="p">):</span>
+                    <span class="n">check_label</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+                <span class="n">hostname</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">UnicodeError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span>
+                    <span class="s2">&quot;Invalid ASCII host name: </span><span class="si">{!r}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">hostname</span><span class="p">)</span>
+                <span class="p">)</span>
+
+        <span class="nd">@given</span><span class="p">(</span><span class="n">hostnames</span><span class="p">(</span><span class="n">allow_leading_digit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_idn</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+        <span class="k">def</span> <span class="nf">test_hostnames_ascii_nolead</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hostname</span><span class="p">):</span>
+            <span class="c1"># type: (Text) -&gt; None</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            hostnames(allow_leading_digit=False, allow_idn=False) generates</span>
+<span class="sd">            ASCII host names without leading digits.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">hostname</span> <span class="o">==</span> <span class="n">hostname</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="n">digits</span><span class="p">))</span>
+
+        <span class="nd">@given</span><span class="p">(</span><span class="n">paths</span><span class="p">())</span>
+        <span class="k">def</span> <span class="nf">test_paths</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+            <span class="c1"># type: (Sequence[Text]) -&gt; None</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            paths() generates sequences of URL path components.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">text</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">UnicodeError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="s2">&quot;Invalid URL path: </span><span class="si">{!r}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+
+            <span class="k">for</span> <span class="n">segment</span> <span class="ow">in</span> <span class="n">path</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertNotIn</span><span class="p">(</span><span class="s2">&quot;#/?&quot;</span><span class="p">,</span> <span class="n">segment</span><span class="p">)</span>
+
+        <span class="nd">@given</span><span class="p">(</span><span class="n">encoded_urls</span><span class="p">())</span>
+        <span class="k">def</span> <span class="nf">test_encoded_urls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+            <span class="c1"># type: (EncodedURL) -&gt; None</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            encoded_urls() generates EncodedURLs.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">EncodedURL</span><span class="p">)</span>
+
+        <span class="nd">@given</span><span class="p">(</span><span class="n">decoded_urls</span><span class="p">())</span>
+        <span class="k">def</span> <span class="nf">test_decoded_urls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+            <span class="c1"># type: (DecodedURL) -&gt; None</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            decoded_urls() generates DecodedURLs.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">DecodedURL</span><span class="p">)</span>
+</code></pre></div>
+
+{% endblock %}

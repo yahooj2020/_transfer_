@@ -1,0 +1,596 @@
+{% extends "Lib-template.html" %} 
+{% block body %} 
+
+<div><a class="previous"  style="text-align: left;" href="/detail/Lib-resources.py.html">Previous : resources.py</a>&nbsp<a class="next"   style="text-align: right;" href="/detail/Lib-_bootstrap.py.html">Next : _bootstrap.py</a></div><br>
+<div class="codehilite"><pre><span></span><code><span class="sd">&quot;&quot;&quot;Define partial Python code Parser used by editor and hyperparser.</span>
+
+<span class="sd">Instances of ParseMap are used with str.translate.</span>
+
+<span class="sd">The following bound search and match functions are defined:</span>
+<span class="sd">_synchre - start of popular statement;</span>
+<span class="sd">_junkre - whitespace or comment line;</span>
+<span class="sd">_match_stringre: string, possibly without closer;</span>
+<span class="sd">_itemre - line that may have bracket structure start;</span>
+<span class="sd">_closere - line that must be followed by dedent.</span>
+<span class="sd">_chew_ordinaryre - non-special characters.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">re</span>
+
+<span class="c1"># Reason last statement is continued (or C_NONE if it&#39;s not).</span>
+<span class="p">(</span><span class="n">C_NONE</span><span class="p">,</span> <span class="n">C_BACKSLASH</span><span class="p">,</span> <span class="n">C_STRING_FIRST_LINE</span><span class="p">,</span>
+ <span class="n">C_STRING_NEXT_LINES</span><span class="p">,</span> <span class="n">C_BRACKET</span><span class="p">)</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+
+<span class="c1"># Find what looks like the start of a popular statement.</span>
+
+<span class="n">_synchre</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">    ^</span>
+<span class="s2">    [ \t]*</span>
+<span class="s2">    (?: while</span>
+<span class="s2">    |   else</span>
+<span class="s2">    |   def</span>
+<span class="s2">    |   return</span>
+<span class="s2">    |   assert</span>
+<span class="s2">    |   break</span>
+<span class="s2">    |   class</span>
+<span class="s2">    |   continue</span>
+<span class="s2">    |   elif</span>
+<span class="s2">    |   try</span>
+<span class="s2">    |   except</span>
+<span class="s2">    |   raise</span>
+<span class="s2">    |   import</span>
+<span class="s2">    |   yield</span>
+<span class="s2">    )</span>
+<span class="s2">    \b</span>
+<span class="s2">&quot;&quot;&quot;</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">VERBOSE</span> <span class="o">|</span> <span class="n">re</span><span class="o">.</span><span class="n">MULTILINE</span><span class="p">)</span><span class="o">.</span><span class="n">search</span>
+
+<span class="c1"># Match blank line or non-indenting comment line.</span>
+
+<span class="n">_junkre</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">    [ \t]*</span>
+<span class="s2">    (?: \# \S .* )?</span>
+<span class="s2">    \n</span>
+<span class="s2">&quot;&quot;&quot;</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">VERBOSE</span><span class="p">)</span><span class="o">.</span><span class="n">match</span>
+
+<span class="c1"># Match any flavor of string; the terminating quote is optional</span>
+<span class="c1"># so that we&#39;re robust in the face of incomplete program text.</span>
+
+<span class="n">_match_stringre</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">    \&quot;&quot;&quot;</span> <span class="p">[</span><span class="o">^</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">]* (?:</span>
+                     <span class="p">(</span><span class="err">?</span><span class="p">:</span> \\<span class="o">.</span> <span class="o">|</span> <span class="s2">&quot;(?!&quot;&quot;) )</span>
+                     <span class="p">[</span><span class="o">^</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">]*</span>
+                 <span class="p">)</span><span class="o">*</span>
+    <span class="p">(</span><span class="err">?</span><span class="p">:</span> \<span class="s2">&quot;&quot;&quot; )?</span>
+
+<span class="s2">|   &quot; [^&quot;</span><span class="se">\\\n</span><span class="s2">]* (?: </span><span class="se">\\</span><span class="s2">. [^&quot;</span><span class="se">\\\n</span><span class="s2">]* )* &quot;?</span>
+
+<span class="s2">|   &#39;&#39;&#39; [^&#39;</span><span class="se">\\</span><span class="s2">]* (?:</span>
+<span class="s2">                   (?: </span><span class="se">\\</span><span class="s2">. | &#39;(?!&#39;&#39;) )</span>
+<span class="s2">                   [^&#39;</span><span class="se">\\</span><span class="s2">]*</span>
+<span class="s2">                )*</span>
+<span class="s2">    (?: &#39;&#39;&#39; )?</span>
+
+<span class="s2">|   &#39; [^&#39;</span><span class="se">\\\n</span><span class="s2">]* (?: </span><span class="se">\\</span><span class="s2">. [^&#39;</span><span class="se">\\\n</span><span class="s2">]* )* &#39;?</span>
+<span class="s2">&quot;&quot;&quot;</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">VERBOSE</span> <span class="o">|</span> <span class="n">re</span><span class="o">.</span><span class="n">DOTALL</span><span class="p">)</span><span class="o">.</span><span class="n">match</span>
+
+<span class="c1"># Match a line that starts with something interesting;</span>
+<span class="c1"># used to find the first item of a bracket structure.</span>
+
+<span class="n">_itemre</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">    [ \t]*</span>
+<span class="s2">    [^\s#\\]    # if we match, m.end()-1 is the interesting char</span>
+<span class="s2">&quot;&quot;&quot;</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">VERBOSE</span><span class="p">)</span><span class="o">.</span><span class="n">match</span>
+
+<span class="c1"># Match start of statements that should be followed by a dedent.</span>
+
+<span class="n">_closere</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">    \s*</span>
+<span class="s2">    (?: return</span>
+<span class="s2">    |   break</span>
+<span class="s2">    |   continue</span>
+<span class="s2">    |   raise</span>
+<span class="s2">    |   pass</span>
+<span class="s2">    )</span>
+<span class="s2">    \b</span>
+<span class="s2">&quot;&quot;&quot;</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">VERBOSE</span><span class="p">)</span><span class="o">.</span><span class="n">match</span>
+
+<span class="c1"># Chew up non-special chars as quickly as possible.  If match is</span>
+<span class="c1"># successful, m.end() less 1 is the index of the last boring char</span>
+<span class="c1"># matched.  If match is unsuccessful, the string starts with an</span>
+<span class="c1"># interesting char.</span>
+
+<span class="n">_chew_ordinaryre</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">    [^[\]()</span><span class="si">{}</span><span class="s2">#&#39;&quot;\\]+</span>
+<span class="s2">&quot;&quot;&quot;</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">VERBOSE</span><span class="p">)</span><span class="o">.</span><span class="n">match</span>
+
+
+<span class="k">class</span> <span class="nc">ParseMap</span><span class="p">(</span><span class="nb">dict</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Dict subclass that maps anything not in dict to &#39;x&#39;.</span>
+
+<span class="sd">    This is designed to be used with str.translate in study1.</span>
+<span class="sd">    Anything not specifically mapped otherwise becomes &#39;x&#39;.</span>
+<span class="sd">    Example: replace everything except whitespace with &#39;x&#39;.</span>
+
+<span class="sd">    &gt;&gt;&gt; keepwhite = ParseMap((ord(c), ord(c)) for c in &#39; \t\n\r&#39;)</span>
+<span class="sd">    &gt;&gt;&gt; &quot;a + b\tc\nd&quot;.translate(keepwhite)</span>
+<span class="sd">    &#39;x x x\tx\nx&#39;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Calling this triples access time; see bpo-32940</span>
+    <span class="k">def</span> <span class="fm">__missing__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">120</span>  <span class="c1"># ord(&#39;x&#39;)</span>
+
+
+<span class="c1"># Map all ascii to 120 to avoid __missing__ call, then replace some.</span>
+<span class="n">trans</span> <span class="o">=</span> <span class="n">ParseMap</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">128</span><span class="p">),</span> <span class="mi">120</span><span class="p">)</span>
+<span class="n">trans</span><span class="o">.</span><span class="n">update</span><span class="p">((</span><span class="nb">ord</span><span class="p">(</span><span class="n">c</span><span class="p">),</span> <span class="nb">ord</span><span class="p">(</span><span class="s1">&#39;(&#39;</span><span class="p">))</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="s2">&quot;({[&quot;</span><span class="p">)</span>  <span class="c1"># open brackets =&gt; &#39;(&#39;;</span>
+<span class="n">trans</span><span class="o">.</span><span class="n">update</span><span class="p">((</span><span class="nb">ord</span><span class="p">(</span><span class="n">c</span><span class="p">),</span> <span class="nb">ord</span><span class="p">(</span><span class="s1">&#39;)&#39;</span><span class="p">))</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="s2">&quot;)}]&quot;</span><span class="p">)</span>  <span class="c1"># close brackets =&gt; &#39;)&#39;.</span>
+<span class="n">trans</span><span class="o">.</span><span class="n">update</span><span class="p">((</span><span class="nb">ord</span><span class="p">(</span><span class="n">c</span><span class="p">),</span> <span class="nb">ord</span><span class="p">(</span><span class="n">c</span><span class="p">))</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="s2">&quot;</span><span class="se">\&quot;</span><span class="s2">&#39;</span><span class="se">\\\n</span><span class="s2">#&quot;</span><span class="p">)</span>  <span class="c1"># Keep these.</span>
+
+
+<span class="k">class</span> <span class="nc">Parser</span><span class="p">:</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">indentwidth</span><span class="p">,</span> <span class="n">tabwidth</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">indentwidth</span> <span class="o">=</span> <span class="n">indentwidth</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tabwidth</span> <span class="o">=</span> <span class="n">tabwidth</span>
+
+    <span class="k">def</span> <span class="nf">set_code</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">s</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span> <span class="o">=</span> <span class="n">s</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">study_level</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="nf">find_good_parse_start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">is_char_in_string</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return index of a good place to begin parsing, as close to the</span>
+<span class="sd">        end of the string as possible.  This will be the start of some</span>
+<span class="sd">        popular stmt like &quot;if&quot; or &quot;def&quot;.  Return None if none found:</span>
+<span class="sd">        the caller should pass more prior context then, if possible, or</span>
+<span class="sd">        if not (the entire program text up until the point of interest</span>
+<span class="sd">        has already been tried) pass 0 to set_lo().</span>
+
+<span class="sd">        This will be reliable iff given a reliable is_char_in_string()</span>
+<span class="sd">        function, meaning that when it says &quot;no&quot;, it&#39;s absolutely</span>
+<span class="sd">        guaranteed that the char is not in a string.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">code</span><span class="p">,</span> <span class="n">pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="p">,</span> <span class="kc">None</span>
+
+        <span class="c1"># Peek back from the end for a good place to start,</span>
+        <span class="c1"># but don&#39;t try too often; pos will be left None, or</span>
+        <span class="c1"># bumped to a legitimate synch point.</span>
+        <span class="n">limit</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">tries</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">rfind</span><span class="p">(</span><span class="s2">&quot;:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">limit</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">rfind</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>  <span class="c1"># start of colon line (-1+1=0)</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">_synchre</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">limit</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">m</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_char_in_string</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">start</span><span class="p">()):</span>
+                <span class="n">pos</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+                <span class="k">break</span>
+            <span class="n">limit</span> <span class="o">=</span> <span class="n">i</span>
+        <span class="k">if</span> <span class="n">pos</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Nothing looks like a block-opener, or stuff does</span>
+            <span class="c1"># but is_char_in_string keeps returning true; most likely</span>
+            <span class="c1"># we&#39;re in or near a giant string, the colorizer hasn&#39;t</span>
+            <span class="c1"># caught up enough to be helpful, or there simply *aren&#39;t*</span>
+            <span class="c1"># any interesting stmts.  In any of these cases we&#39;re</span>
+            <span class="c1"># going to have to parse the whole thing to be sure, so</span>
+            <span class="c1"># give it one last try from the start, but stop wasting</span>
+            <span class="c1"># time here regardless of the outcome.</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">_synchre</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">m</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_char_in_string</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">start</span><span class="p">()):</span>
+                <span class="n">pos</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">pos</span>
+
+        <span class="c1"># Peeking back worked; look forward until _synchre no longer</span>
+        <span class="c1"># matches.</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">pos</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">while</span> <span class="n">m</span> <span class="o">:=</span> <span class="n">_synchre</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+            <span class="n">s</span><span class="p">,</span> <span class="n">i</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">span</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_char_in_string</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+                <span class="n">pos</span> <span class="o">=</span> <span class="n">s</span>
+        <span class="k">return</span> <span class="n">pos</span>
+
+    <span class="k">def</span> <span class="nf">set_lo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lo</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Throw away the start of the string.</span>
+
+<span class="sd">        Intended to be called with the result of find_good_parse_start().</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">lo</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="p">[</span><span class="n">lo</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="k">if</span> <span class="n">lo</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">code</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="p">[</span><span class="n">lo</span><span class="p">:]</span>
+
+    <span class="k">def</span> <span class="nf">_study1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the line numbers of non-continuation lines.</span>
+
+<span class="sd">        As quickly as humanly possible &lt;wink&gt;, find the line numbers (0-</span>
+<span class="sd">        based) of the non-continuation lines.</span>
+<span class="sd">        Creates self.{goodlines, continuation}.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">study_level</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">study_level</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="c1"># Map all uninteresting characters to &quot;x&quot;, all open brackets</span>
+        <span class="c1"># to &quot;(&quot;, all close brackets to &quot;)&quot;, then collapse runs of</span>
+        <span class="c1"># uninteresting characters.  This can cut the number of chars</span>
+        <span class="c1"># by a factor of 10-40, and so greatly speed the following loop.</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">code</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">translate</span><span class="p">(</span><span class="n">trans</span><span class="p">)</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;xxxxxxxx&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;xxxx&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;xx&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;xx&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">x&#39;</span><span class="p">,</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="c1"># Replacing x\n with \n would be incorrect because</span>
+        <span class="c1"># x may be preceded by a backslash.</span>
+
+        <span class="c1"># March over the squashed version of the program, accumulating</span>
+        <span class="c1"># the line numbers of non-continued stmts, and determining</span>
+        <span class="c1"># whether &amp; why the last stmt is a continuation.</span>
+        <span class="n">continuation</span> <span class="o">=</span> <span class="n">C_NONE</span>
+        <span class="n">level</span> <span class="o">=</span> <span class="n">lno</span> <span class="o">=</span> <span class="mi">0</span>     <span class="c1"># level is nesting level; lno is line number</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">goodlines</span> <span class="o">=</span> <span class="n">goodlines</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">push_good</span> <span class="o">=</span> <span class="n">goodlines</span><span class="o">.</span><span class="n">append</span>
+        <span class="n">i</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">:</span>
+            <span class="n">ch</span> <span class="o">=</span> <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span>
+
+            <span class="c1"># cases are checked in decreasing order of frequency</span>
+            <span class="k">if</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">:</span>
+                <span class="n">lno</span> <span class="o">=</span> <span class="n">lno</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">push_good</span><span class="p">(</span><span class="n">lno</span><span class="p">)</span>
+                    <span class="c1"># else we&#39;re in an unclosed bracket structure</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;(&#39;</span><span class="p">:</span>
+                <span class="n">level</span> <span class="o">=</span> <span class="n">level</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;)&#39;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">level</span><span class="p">:</span>
+                    <span class="n">level</span> <span class="o">=</span> <span class="n">level</span> <span class="o">-</span> <span class="mi">1</span>
+                    <span class="c1"># else the program is invalid, but we can&#39;t complain</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;&quot;&#39;</span> <span class="ow">or</span> <span class="n">ch</span> <span class="o">==</span> <span class="s2">&quot;&#39;&quot;</span><span class="p">:</span>
+                <span class="c1"># consume the string</span>
+                <span class="n">quote</span> <span class="o">=</span> <span class="n">ch</span>
+                <span class="k">if</span> <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">quote</span> <span class="o">*</span> <span class="mi">3</span><span class="p">:</span>
+                    <span class="n">quote</span> <span class="o">=</span> <span class="n">quote</span> <span class="o">*</span> <span class="mi">3</span>
+                <span class="n">firstlno</span> <span class="o">=</span> <span class="n">lno</span>
+                <span class="n">w</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">quote</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">+</span><span class="n">w</span>
+                <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">:</span>
+                    <span class="n">ch</span> <span class="o">=</span> <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span>
+
+                    <span class="k">if</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span>
+                        <span class="k">continue</span>
+
+                    <span class="k">if</span> <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">w</span><span class="p">]</span> <span class="o">==</span> <span class="n">quote</span><span class="p">:</span>
+                        <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">+</span><span class="n">w</span>
+                        <span class="k">break</span>
+
+                    <span class="k">if</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">:</span>
+                        <span class="n">lno</span> <span class="o">=</span> <span class="n">lno</span> <span class="o">+</span> <span class="mi">1</span>
+                        <span class="k">if</span> <span class="n">w</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="c1"># unterminated single-quoted string</span>
+                            <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                                <span class="n">push_good</span><span class="p">(</span><span class="n">lno</span><span class="p">)</span>
+                            <span class="k">break</span>
+                        <span class="k">continue</span>
+
+                    <span class="k">if</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;</span><span class="se">\\</span><span class="s1">&#39;</span><span class="p">:</span>
+                        <span class="k">assert</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span>
+                        <span class="k">if</span> <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">:</span>
+                            <span class="n">lno</span> <span class="o">=</span> <span class="n">lno</span> <span class="o">+</span> <span class="mi">1</span>
+                        <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span>
+                        <span class="k">continue</span>
+
+                    <span class="c1"># else comment char or paren inside string</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># didn&#39;t break out of the loop, so we&#39;re still</span>
+                    <span class="c1"># inside a string</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="n">lno</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="n">firstlno</span><span class="p">:</span>
+                        <span class="c1"># before the previous \n in code, we were in the first</span>
+                        <span class="c1"># line of the string</span>
+                        <span class="n">continuation</span> <span class="o">=</span> <span class="n">C_STRING_FIRST_LINE</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">continuation</span> <span class="o">=</span> <span class="n">C_STRING_NEXT_LINES</span>
+                <span class="k">continue</span>    <span class="c1"># with outer loop</span>
+
+            <span class="k">if</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;#&#39;</span><span class="p">:</span>
+                <span class="c1"># consume the comment</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+                <span class="k">continue</span>
+
+            <span class="k">assert</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;</span><span class="se">\\</span><span class="s1">&#39;</span>
+            <span class="k">assert</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span>
+            <span class="k">if</span> <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">:</span>
+                <span class="n">lno</span> <span class="o">=</span> <span class="n">lno</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span> <span class="o">==</span> <span class="n">n</span><span class="p">:</span>
+                    <span class="n">continuation</span> <span class="o">=</span> <span class="n">C_BACKSLASH</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span>
+
+        <span class="c1"># The last stmt may be continued for all 3 reasons.</span>
+        <span class="c1"># String continuation takes precedence over bracket</span>
+        <span class="c1"># continuation, which beats backslash continuation.</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">continuation</span> <span class="o">!=</span> <span class="n">C_STRING_FIRST_LINE</span>
+            <span class="ow">and</span> <span class="n">continuation</span> <span class="o">!=</span> <span class="n">C_STRING_NEXT_LINES</span> <span class="ow">and</span> <span class="n">level</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="n">continuation</span> <span class="o">=</span> <span class="n">C_BRACKET</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">continuation</span> <span class="o">=</span> <span class="n">continuation</span>
+
+        <span class="c1"># Push the final line number as a sentinel value, regardless of</span>
+        <span class="c1"># whether it&#39;s continued.</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="n">continuation</span> <span class="o">==</span> <span class="n">C_NONE</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="n">goodlines</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">lno</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">goodlines</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">lno</span><span class="p">:</span>
+            <span class="n">push_good</span><span class="p">(</span><span class="n">lno</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_continuation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_study1</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">continuation</span>
+
+    <span class="k">def</span> <span class="nf">_study2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        study1 was sufficient to determine the continuation status,</span>
+<span class="sd">        but doing more requires looking at every character.  study2</span>
+<span class="sd">        does this for the last interesting statement in the block.</span>
+<span class="sd">        Creates:</span>
+<span class="sd">            self.stmt_start, stmt_end</span>
+<span class="sd">                slice indices of last interesting stmt</span>
+<span class="sd">            self.stmt_bracketing</span>
+<span class="sd">                the bracketing structure of the last interesting stmt; for</span>
+<span class="sd">                example, for the statement &quot;say(boo) or die&quot;,</span>
+<span class="sd">                stmt_bracketing will be ((0, 0), (0, 1), (2, 0), (2, 1),</span>
+<span class="sd">                (4, 0)). Strings and comments are treated as brackets, for</span>
+<span class="sd">                the matter.</span>
+<span class="sd">            self.lastch</span>
+<span class="sd">                last interesting character before optional trailing comment</span>
+<span class="sd">            self.lastopenbracketpos</span>
+<span class="sd">                if continuation is C_BRACKET, index of last open bracket</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">study_level</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_study1</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">study_level</span> <span class="o">=</span> <span class="mi">2</span>
+
+        <span class="c1"># Set p and q to slice indices of last interesting stmt.</span>
+        <span class="n">code</span><span class="p">,</span> <span class="n">goodlines</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">goodlines</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">goodlines</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>  <span class="c1"># Index of newest line.</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>  <span class="c1"># End of goodlines[i]</span>
+        <span class="k">while</span> <span class="n">i</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">p</span>
+            <span class="c1"># Make p be the index of the stmt at line number goodlines[i].</span>
+            <span class="c1"># Move p back to the stmt at line number goodlines[i-1].</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">p</span>
+            <span class="k">for</span> <span class="n">nothing</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">goodlines</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">goodlines</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                <span class="c1"># tricky: sets p to 0 if no preceding newline</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">rfind</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">p</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="c1"># The stmt code[p:q] isn&#39;t a continuation, but may be blank</span>
+            <span class="c1"># or a non-indenting comment line.</span>
+            <span class="k">if</span>  <span class="n">_junkre</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">-</span><span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">break</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># nothing but junk!</span>
+            <span class="k">assert</span> <span class="n">p</span> <span class="o">==</span> <span class="mi">0</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">p</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stmt_start</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stmt_end</span> <span class="o">=</span> <span class="n">p</span><span class="p">,</span> <span class="n">q</span>
+
+        <span class="c1"># Analyze this stmt, to find the last open bracket (if any)</span>
+        <span class="c1"># and last interesting character (if any).</span>
+        <span class="n">lastch</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">stack</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># stack of open bracket indices</span>
+        <span class="n">push_stack</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">append</span>
+        <span class="n">bracketing</span> <span class="o">=</span> <span class="p">[(</span><span class="n">p</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span>
+        <span class="k">while</span> <span class="n">p</span> <span class="o">&lt;</span> <span class="n">q</span><span class="p">:</span>
+            <span class="c1"># suck up all except ()[]{}&#39;&quot;#\\</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">_chew_ordinaryre</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
+                <span class="c1"># we skipped at least one boring char</span>
+                <span class="n">newp</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                <span class="c1"># back up over totally boring whitespace</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">newp</span> <span class="o">-</span> <span class="mi">1</span>    <span class="c1"># index of last boring char</span>
+                <span class="k">while</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="n">p</span> <span class="ow">and</span> <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">in</span> <span class="s2">&quot; </span><span class="se">\t\n</span><span class="s2">&quot;</span><span class="p">:</span>
+                    <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">-</span><span class="mi">1</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="n">p</span><span class="p">:</span>
+                    <span class="n">lastch</span> <span class="o">=</span> <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">newp</span>
+                <span class="k">if</span> <span class="n">p</span> <span class="o">&gt;=</span> <span class="n">q</span><span class="p">:</span>
+                    <span class="k">break</span>
+
+            <span class="n">ch</span> <span class="o">=</span> <span class="n">code</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">ch</span> <span class="ow">in</span> <span class="s2">&quot;([{&quot;</span><span class="p">:</span>
+                <span class="n">push_stack</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+                <span class="n">bracketing</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">p</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">stack</span><span class="p">)))</span>
+                <span class="n">lastch</span> <span class="o">=</span> <span class="n">ch</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">p</span><span class="o">+</span><span class="mi">1</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">ch</span> <span class="ow">in</span> <span class="s2">&quot;)]}&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">stack</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">lastch</span> <span class="o">=</span> <span class="n">ch</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">p</span><span class="o">+</span><span class="mi">1</span>
+                <span class="n">bracketing</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">p</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">stack</span><span class="p">)))</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;&quot;&#39;</span> <span class="ow">or</span> <span class="n">ch</span> <span class="o">==</span> <span class="s2">&quot;&#39;&quot;</span><span class="p">:</span>
+                <span class="c1"># consume string</span>
+                <span class="c1"># Note that study1 did this with a Python loop, but</span>
+                <span class="c1"># we use a regexp here; the reason is speed in both</span>
+                <span class="c1"># cases; the string may be huge, but study1 pre-squashed</span>
+                <span class="c1"># strings to a couple of characters per line.  study1</span>
+                <span class="c1"># also needed to keep track of newlines, and we don&#39;t</span>
+                <span class="c1"># have to.</span>
+                <span class="n">bracketing</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">p</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+                <span class="n">lastch</span> <span class="o">=</span> <span class="n">ch</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">_match_stringre</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                <span class="n">bracketing</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">p</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">stack</span><span class="p">)))</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;#&#39;</span><span class="p">:</span>
+                <span class="c1"># consume comment and trailing newline</span>
+                <span class="n">bracketing</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">p</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="k">assert</span> <span class="n">p</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                <span class="n">bracketing</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">p</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">stack</span><span class="p">)))</span>
+                <span class="k">continue</span>
+
+            <span class="k">assert</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;</span><span class="se">\\</span><span class="s1">&#39;</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">p</span><span class="o">+</span><span class="mi">1</span>     <span class="c1"># beyond backslash</span>
+            <span class="k">assert</span> <span class="n">p</span> <span class="o">&lt;</span> <span class="n">q</span>
+            <span class="k">if</span> <span class="n">code</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">:</span>
+                <span class="c1"># the program is invalid, but can&#39;t complain</span>
+                <span class="n">lastch</span> <span class="o">=</span> <span class="n">ch</span> <span class="o">+</span> <span class="n">code</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">p</span><span class="o">+</span><span class="mi">1</span>     <span class="c1"># beyond escaped char</span>
+
+        <span class="c1"># end while p &lt; q:</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">lastch</span> <span class="o">=</span> <span class="n">lastch</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lastopenbracketpos</span> <span class="o">=</span> <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">stack</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stmt_bracketing</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">bracketing</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">compute_bracket_indent</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return number of spaces the next line should be indented.</span>
+
+<span class="sd">        Line continuation must be C_BRACKET.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_study2</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">continuation</span> <span class="o">==</span> <span class="n">C_BRACKET</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lastopenbracketpos</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">code</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+        <span class="n">origi</span> <span class="o">=</span> <span class="n">i</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">rfind</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span>     <span class="c1"># one beyond open bracket</span>
+        <span class="c1"># find first list item; set i to start of its line</span>
+        <span class="k">while</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">:</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">_itemre</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
+                <span class="n">j</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">end</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span>     <span class="c1"># index of first interesting char</span>
+                <span class="n">extra</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># this line is junk; advance to next line</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">j</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># nothing interesting follows the bracket;</span>
+            <span class="c1"># reproduce the bracket line&#39;s indentation + a level</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="n">i</span> <span class="o">=</span> <span class="n">origi</span>
+            <span class="k">while</span> <span class="n">code</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="ow">in</span> <span class="s2">&quot; </span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">:</span>
+                <span class="n">j</span> <span class="o">=</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span>
+            <span class="n">extra</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">indentwidth</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">expandtabs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tabwidth</span><span class="p">))</span> <span class="o">+</span> <span class="n">extra</span>
+
+    <span class="k">def</span> <span class="nf">get_num_lines_in_stmt</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return number of physical lines in last stmt.</span>
+
+<span class="sd">        The statement doesn&#39;t have to be an interesting statement.  This is</span>
+<span class="sd">        intended to be called when continuation is C_BACKSLASH.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_study1</span><span class="p">()</span>
+        <span class="n">goodlines</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">goodlines</span>
+        <span class="k">return</span> <span class="n">goodlines</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">goodlines</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">compute_backslash_indent</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return number of spaces the next line should be indented.</span>
+
+<span class="sd">        Line continuation must be C_BACKSLASH.  Also assume that the new</span>
+<span class="sd">        line is the first one following the initial line of the stmt.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_study2</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">continuation</span> <span class="o">==</span> <span class="n">C_BACKSLASH</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">code</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stmt_start</span>
+        <span class="k">while</span> <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">in</span> <span class="s2">&quot; </span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">:</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span>
+        <span class="n">startpos</span> <span class="o">=</span> <span class="n">i</span>
+
+        <span class="c1"># See whether the initial line starts an assignment stmt; i.e.,</span>
+        <span class="c1"># look for an = operator</span>
+        <span class="n">endpos</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">startpos</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="n">level</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">endpos</span><span class="p">:</span>
+            <span class="n">ch</span> <span class="o">=</span> <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">ch</span> <span class="ow">in</span> <span class="s2">&quot;([{&quot;</span><span class="p">:</span>
+                <span class="n">level</span> <span class="o">=</span> <span class="n">level</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span>
+            <span class="k">elif</span> <span class="n">ch</span> <span class="ow">in</span> <span class="s2">&quot;)]}&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">level</span><span class="p">:</span>
+                    <span class="n">level</span> <span class="o">=</span> <span class="n">level</span> <span class="o">-</span> <span class="mi">1</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span>
+            <span class="k">elif</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;&quot;&#39;</span> <span class="ow">or</span> <span class="n">ch</span> <span class="o">==</span> <span class="s2">&quot;&#39;&quot;</span><span class="p">:</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">_match_stringre</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">endpos</span><span class="p">)</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;#&#39;</span><span class="p">:</span>
+                <span class="c1"># This line is unreachable because the # makes a comment of</span>
+                <span class="c1"># everything after it.</span>
+                <span class="k">break</span>
+            <span class="k">elif</span> <span class="n">level</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;=&#39;</span> <span class="ow">and</span> \
+                   <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="s2">&quot;=&lt;&gt;!&quot;</span><span class="p">)</span> <span class="ow">and</span> \
+                   <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;=&#39;</span><span class="p">:</span>
+                <span class="n">found</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span>
+
+        <span class="k">if</span> <span class="n">found</span><span class="p">:</span>
+            <span class="c1"># found a legit =, but it may be the last interesting</span>
+            <span class="c1"># thing on the line</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span>     <span class="c1"># move beyond the =</span>
+            <span class="n">found</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\s*</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">endpos</span><span class="p">])</span> <span class="ow">is</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">found</span><span class="p">:</span>
+            <span class="c1"># oh well ... settle for moving beyond the first chunk</span>
+            <span class="c1"># of non-whitespace chars</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">startpos</span>
+            <span class="k">while</span> <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="s2">&quot; </span><span class="se">\t\n</span><span class="s2">&quot;</span><span class="p">:</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span>
+
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">code</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">stmt_start</span><span class="p">:</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">expandtabs</span><span class="p">(</span>\
+                                     <span class="bp">self</span><span class="o">.</span><span class="n">tabwidth</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span>
+
+    <span class="k">def</span> <span class="nf">get_base_indent_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the leading whitespace on the initial line of the last</span>
+<span class="sd">        interesting stmt.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_study2</span><span class="p">()</span>
+        <span class="n">i</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stmt_start</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stmt_end</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="n">i</span>
+        <span class="n">code</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">code</span>
+        <span class="k">while</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="ow">and</span> <span class="n">code</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="ow">in</span> <span class="s2">&quot; </span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">:</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">code</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">j</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">is_block_opener</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return True if the last interesting statement opens a block.&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_study2</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lastch</span> <span class="o">==</span> <span class="s1">&#39;:&#39;</span>
+
+    <span class="k">def</span> <span class="nf">is_block_closer</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return True if the last interesting statement closes a block.&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_study2</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">_closere</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stmt_start</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">get_last_stmt_bracketing</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return bracketing structure of the last interesting statement.</span>
+
+<span class="sd">        The returned tuple is in the format defined in _study2().</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_study2</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">stmt_bracketing</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">unittest</span> <span class="kn">import</span> <span class="n">main</span>
+    <span class="n">main</span><span class="p">(</span><span class="s1">&#39;idlelib.idle_test.test_pyparse&#39;</span><span class="p">,</span> <span class="n">verbosity</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</code></pre></div>
+
+{% endblock %}
