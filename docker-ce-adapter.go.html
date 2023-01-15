@@ -1,0 +1,125 @@
+{% extends "docker-ce-template.html" %} 
+{% block body %} 
+
+<div><a class="previous"  style="text-align: left;" href="/detail/docker-ce-vt100.go.html">Previous : vt100.go</a>&nbsp<a class="next"   style="text-align: right;" href="/detail/docker-ce-any_array.go.html">Next : any_array.go</a></div><br>
+<div class="codehilite"><pre><span></span><code><span class="n">package</span> <span class="n">distribution</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+    <span class="s2">&quot;context&quot;</span>
+
+    <span class="s2">&quot;github.com/docker/distribution/reference&quot;</span>
+<span class="p">)</span>
+
+<span class="o">//</span> <span class="n">Scope</span> <span class="n">defines</span> <span class="n">the</span> <span class="nb">set</span> <span class="n">of</span> <span class="n">items</span> <span class="n">that</span> <span class="n">match</span> <span class="n">a</span> <span class="n">namespace</span><span class="o">.</span>
+<span class="nb">type</span> <span class="n">Scope</span> <span class="n">interface</span> <span class="p">{</span>
+    <span class="o">//</span> <span class="n">Contains</span> <span class="n">returns</span> <span class="n">true</span> <span class="k">if</span> <span class="n">the</span> <span class="n">name</span> <span class="n">belongs</span> <span class="n">to</span> <span class="n">the</span> <span class="n">namespace</span><span class="o">.</span>
+    <span class="n">Contains</span><span class="p">(</span><span class="n">name</span> <span class="n">string</span><span class="p">)</span> <span class="nb">bool</span>
+<span class="p">}</span>
+
+<span class="nb">type</span> <span class="n">fullScope</span> <span class="n">struct</span><span class="p">{}</span>
+
+<span class="n">func</span> <span class="p">(</span><span class="n">f</span> <span class="n">fullScope</span><span class="p">)</span> <span class="n">Contains</span><span class="p">(</span><span class="n">string</span><span class="p">)</span> <span class="nb">bool</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">true</span>
+<span class="p">}</span>
+
+<span class="o">//</span> <span class="n">GlobalScope</span> <span class="n">represents</span> <span class="n">the</span> <span class="n">full</span> <span class="n">namespace</span> <span class="n">scope</span> <span class="n">which</span> <span class="n">contains</span>
+<span class="o">//</span> <span class="nb">all</span> <span class="n">other</span> <span class="n">scopes</span><span class="o">.</span>
+<span class="n">var</span> <span class="n">GlobalScope</span> <span class="o">=</span> <span class="n">Scope</span><span class="p">(</span><span class="n">fullScope</span><span class="p">{})</span>
+
+<span class="o">//</span> <span class="n">Namespace</span> <span class="n">represents</span> <span class="n">a</span> <span class="n">collection</span> <span class="n">of</span> <span class="n">repositories</span><span class="p">,</span> <span class="n">addressable</span> <span class="n">by</span> <span class="n">name</span><span class="o">.</span>
+<span class="o">//</span> <span class="n">Generally</span><span class="p">,</span> <span class="n">a</span> <span class="n">namespace</span> <span class="ow">is</span> <span class="n">backed</span> <span class="n">by</span> <span class="n">a</span> <span class="nb">set</span> <span class="n">of</span> <span class="n">one</span> <span class="ow">or</span> <span class="n">more</span> <span class="n">services</span><span class="p">,</span>
+<span class="o">//</span> <span class="n">providing</span> <span class="n">facilities</span> <span class="n">such</span> <span class="k">as</span> <span class="n">registry</span> <span class="n">access</span><span class="p">,</span> <span class="n">trust</span><span class="p">,</span> <span class="ow">and</span> <span class="n">indexing</span><span class="o">.</span>
+<span class="nb">type</span> <span class="n">Namespace</span> <span class="n">interface</span> <span class="p">{</span>
+    <span class="o">//</span> <span class="n">Scope</span> <span class="n">describes</span> <span class="n">the</span> <span class="n">names</span> <span class="n">that</span> <span class="n">can</span> <span class="n">be</span> <span class="n">used</span> <span class="k">with</span> <span class="n">this</span> <span class="n">Namespace</span><span class="o">.</span> <span class="n">The</span>
+    <span class="o">//</span> <span class="k">global</span> <span class="n">namespace</span> <span class="n">will</span> <span class="n">have</span> <span class="n">a</span> <span class="n">scope</span> <span class="n">that</span> <span class="n">matches</span> <span class="nb">all</span> <span class="n">names</span><span class="o">.</span> <span class="n">The</span> <span class="n">scope</span>
+    <span class="o">//</span> <span class="n">effectively</span> <span class="n">provides</span> <span class="n">an</span> <span class="n">identity</span> <span class="k">for</span> <span class="n">the</span> <span class="n">namespace</span><span class="o">.</span>
+    <span class="n">Scope</span><span class="p">()</span> <span class="n">Scope</span>
+
+    <span class="o">//</span> <span class="n">Repository</span> <span class="n">should</span> <span class="k">return</span> <span class="n">a</span> <span class="n">reference</span> <span class="n">to</span> <span class="n">the</span> <span class="n">named</span> <span class="n">repository</span><span class="o">.</span> <span class="n">The</span>
+    <span class="o">//</span> <span class="n">registry</span> <span class="n">may</span> <span class="ow">or</span> <span class="n">may</span> <span class="ow">not</span> <span class="n">have</span> <span class="n">the</span> <span class="n">repository</span> <span class="n">but</span> <span class="n">should</span> <span class="n">always</span> <span class="k">return</span> <span class="n">a</span>
+    <span class="o">//</span> <span class="n">reference</span><span class="o">.</span>
+    <span class="n">Repository</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">name</span> <span class="n">reference</span><span class="o">.</span><span class="n">Named</span><span class="p">)</span> <span class="p">(</span><span class="n">Repository</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+
+    <span class="o">//</span> <span class="n">Repositories</span> <span class="n">fills</span> <span class="s1">&#39;repos&#39;</span> <span class="k">with</span> <span class="n">a</span> <span class="n">lexicographically</span> <span class="nb">sorted</span> <span class="n">catalog</span> <span class="n">of</span> <span class="n">repositories</span>
+    <span class="o">//</span> <span class="n">up</span> <span class="n">to</span> <span class="n">the</span> <span class="n">size</span> <span class="n">of</span> <span class="s1">&#39;repos&#39;</span> <span class="ow">and</span> <span class="n">returns</span> <span class="n">the</span> <span class="n">value</span> <span class="s1">&#39;n&#39;</span> <span class="k">for</span> <span class="n">the</span> <span class="n">number</span> <span class="n">of</span> <span class="n">entries</span>
+    <span class="o">//</span> <span class="n">which</span> <span class="n">were</span> <span class="n">filled</span><span class="o">.</span>  <span class="s1">&#39;last&#39;</span> <span class="n">contains</span> <span class="n">an</span> <span class="n">offset</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">catalog</span><span class="p">,</span> <span class="ow">and</span> <span class="s1">&#39;err&#39;</span> <span class="n">will</span> <span class="n">be</span>
+    <span class="o">//</span> <span class="nb">set</span> <span class="n">to</span> <span class="n">io</span><span class="o">.</span><span class="n">EOF</span> <span class="k">if</span> <span class="n">there</span> <span class="n">are</span> <span class="n">no</span> <span class="n">more</span> <span class="n">entries</span> <span class="n">to</span> <span class="n">obtain</span><span class="o">.</span>
+    <span class="n">Repositories</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">repos</span> <span class="p">[]</span><span class="n">string</span><span class="p">,</span> <span class="n">last</span> <span class="n">string</span><span class="p">)</span> <span class="p">(</span><span class="n">n</span> <span class="nb">int</span><span class="p">,</span> <span class="n">err</span> <span class="n">error</span><span class="p">)</span>
+
+    <span class="o">//</span> <span class="n">Blobs</span> <span class="n">returns</span> <span class="n">a</span> <span class="n">blob</span> <span class="n">enumerator</span> <span class="n">to</span> <span class="n">access</span> <span class="nb">all</span> <span class="n">blobs</span>
+    <span class="n">Blobs</span><span class="p">()</span> <span class="n">BlobEnumerator</span>
+
+    <span class="o">//</span> <span class="n">BlobStatter</span> <span class="n">returns</span> <span class="n">a</span> <span class="n">BlobStatter</span> <span class="n">to</span> <span class="n">control</span>
+    <span class="n">BlobStatter</span><span class="p">()</span> <span class="n">BlobStatter</span>
+<span class="p">}</span>
+
+<span class="o">//</span> <span class="n">RepositoryEnumerator</span> <span class="n">describes</span> <span class="n">an</span> <span class="n">operation</span> <span class="n">to</span> <span class="nb">enumerate</span> <span class="n">repositories</span>
+<span class="nb">type</span> <span class="n">RepositoryEnumerator</span> <span class="n">interface</span> <span class="p">{</span>
+    <span class="n">Enumerate</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">ingester</span> <span class="n">func</span><span class="p">(</span><span class="n">string</span><span class="p">)</span> <span class="n">error</span><span class="p">)</span> <span class="n">error</span>
+<span class="p">}</span>
+
+<span class="o">//</span> <span class="n">RepositoryRemover</span> <span class="n">removes</span> <span class="n">given</span> <span class="n">repository</span>
+<span class="nb">type</span> <span class="n">RepositoryRemover</span> <span class="n">interface</span> <span class="p">{</span>
+    <span class="n">Remove</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">name</span> <span class="n">reference</span><span class="o">.</span><span class="n">Named</span><span class="p">)</span> <span class="n">error</span>
+<span class="p">}</span>
+
+<span class="o">//</span> <span class="n">ManifestServiceOption</span> <span class="ow">is</span> <span class="n">a</span> <span class="n">function</span> <span class="n">argument</span> <span class="k">for</span> <span class="n">Manifest</span> <span class="n">Service</span> <span class="n">methods</span>
+<span class="nb">type</span> <span class="n">ManifestServiceOption</span> <span class="n">interface</span> <span class="p">{</span>
+    <span class="n">Apply</span><span class="p">(</span><span class="n">ManifestService</span><span class="p">)</span> <span class="n">error</span>
+<span class="p">}</span>
+
+<span class="o">//</span> <span class="n">WithTag</span> <span class="n">allows</span> <span class="n">a</span> <span class="n">tag</span> <span class="n">to</span> <span class="n">be</span> <span class="n">passed</span> <span class="n">into</span> <span class="n">Put</span>
+<span class="n">func</span> <span class="n">WithTag</span><span class="p">(</span><span class="n">tag</span> <span class="n">string</span><span class="p">)</span> <span class="n">ManifestServiceOption</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">WithTagOption</span><span class="p">{</span><span class="n">tag</span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="o">//</span> <span class="n">WithTagOption</span> <span class="n">holds</span> <span class="n">a</span> <span class="n">tag</span>
+<span class="nb">type</span> <span class="n">WithTagOption</span> <span class="n">struct</span><span class="p">{</span> <span class="n">Tag</span> <span class="n">string</span> <span class="p">}</span>
+
+<span class="o">//</span> <span class="n">Apply</span> <span class="n">conforms</span> <span class="n">to</span> <span class="n">the</span> <span class="n">ManifestServiceOption</span> <span class="n">interface</span>
+<span class="n">func</span> <span class="p">(</span><span class="n">o</span> <span class="n">WithTagOption</span><span class="p">)</span> <span class="n">Apply</span><span class="p">(</span><span class="n">m</span> <span class="n">ManifestService</span><span class="p">)</span> <span class="n">error</span> <span class="p">{</span>
+    <span class="o">//</span> <span class="n">no</span> <span class="n">implementation</span>
+    <span class="k">return</span> <span class="n">nil</span>
+<span class="p">}</span>
+
+<span class="o">//</span> <span class="n">WithManifestMediaTypes</span> <span class="n">lists</span> <span class="n">the</span> <span class="n">media</span> <span class="n">types</span> <span class="n">the</span> <span class="n">client</span> <span class="n">wishes</span>
+<span class="o">//</span> <span class="n">the</span> <span class="n">server</span> <span class="n">to</span> <span class="n">provide</span><span class="o">.</span>
+<span class="n">func</span> <span class="n">WithManifestMediaTypes</span><span class="p">(</span><span class="n">mediaTypes</span> <span class="p">[]</span><span class="n">string</span><span class="p">)</span> <span class="n">ManifestServiceOption</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">WithManifestMediaTypesOption</span><span class="p">{</span><span class="n">mediaTypes</span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="o">//</span> <span class="n">WithManifestMediaTypesOption</span> <span class="n">holds</span> <span class="n">a</span> <span class="nb">list</span> <span class="n">of</span> <span class="n">accepted</span> <span class="n">media</span> <span class="n">types</span>
+<span class="nb">type</span> <span class="n">WithManifestMediaTypesOption</span> <span class="n">struct</span><span class="p">{</span> <span class="n">MediaTypes</span> <span class="p">[]</span><span class="n">string</span> <span class="p">}</span>
+
+<span class="o">//</span> <span class="n">Apply</span> <span class="n">conforms</span> <span class="n">to</span> <span class="n">the</span> <span class="n">ManifestServiceOption</span> <span class="n">interface</span>
+<span class="n">func</span> <span class="p">(</span><span class="n">o</span> <span class="n">WithManifestMediaTypesOption</span><span class="p">)</span> <span class="n">Apply</span><span class="p">(</span><span class="n">m</span> <span class="n">ManifestService</span><span class="p">)</span> <span class="n">error</span> <span class="p">{</span>
+    <span class="o">//</span> <span class="n">no</span> <span class="n">implementation</span>
+    <span class="k">return</span> <span class="n">nil</span>
+<span class="p">}</span>
+
+<span class="o">//</span> <span class="n">Repository</span> <span class="ow">is</span> <span class="n">a</span> <span class="n">named</span> <span class="n">collection</span> <span class="n">of</span> <span class="n">manifests</span> <span class="ow">and</span> <span class="n">layers</span><span class="o">.</span>
+<span class="nb">type</span> <span class="n">Repository</span> <span class="n">interface</span> <span class="p">{</span>
+    <span class="o">//</span> <span class="n">Named</span> <span class="n">returns</span> <span class="n">the</span> <span class="n">name</span> <span class="n">of</span> <span class="n">the</span> <span class="n">repository</span><span class="o">.</span>
+    <span class="n">Named</span><span class="p">()</span> <span class="n">reference</span><span class="o">.</span><span class="n">Named</span>
+
+    <span class="o">//</span> <span class="n">Manifests</span> <span class="n">returns</span> <span class="n">a</span> <span class="n">reference</span> <span class="n">to</span> <span class="n">this</span> <span class="n">repository</span><span class="s1">&#39;s manifest service.</span>
+    <span class="o">//</span> <span class="k">with</span> <span class="n">the</span> <span class="n">supplied</span> <span class="n">options</span> <span class="n">applied</span><span class="o">.</span>
+    <span class="n">Manifests</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">options</span> <span class="o">...</span><span class="n">ManifestServiceOption</span><span class="p">)</span> <span class="p">(</span><span class="n">ManifestService</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+
+    <span class="o">//</span> <span class="n">Blobs</span> <span class="n">returns</span> <span class="n">a</span> <span class="n">reference</span> <span class="n">to</span> <span class="n">this</span> <span class="n">repository</span><span class="s1">&#39;s blob service.</span>
+    <span class="n">Blobs</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="n">BlobStore</span>
+
+    <span class="o">//</span> <span class="n">TODO</span><span class="p">(</span><span class="n">stevvooe</span><span class="p">):</span> <span class="n">The</span> <span class="n">above</span> <span class="n">BlobStore</span> <span class="k">return</span> <span class="n">can</span> <span class="n">probably</span> <span class="n">be</span> <span class="n">relaxed</span> <span class="n">to</span>
+    <span class="o">//</span> <span class="n">be</span> <span class="n">a</span> <span class="n">BlobService</span> <span class="k">for</span> <span class="n">use</span> <span class="k">with</span> <span class="n">clients</span><span class="o">.</span> <span class="n">This</span> <span class="n">will</span> <span class="n">allow</span> <span class="n">such</span>
+    <span class="o">//</span> <span class="n">implementations</span> <span class="n">to</span> <span class="n">avoid</span> <span class="n">implementing</span> <span class="n">ServeBlob</span><span class="o">.</span>
+
+    <span class="o">//</span> <span class="n">Tags</span> <span class="n">returns</span> <span class="n">a</span> <span class="n">reference</span> <span class="n">to</span> <span class="n">this</span> <span class="n">repositories</span> <span class="n">tag</span> <span class="n">service</span>
+    <span class="n">Tags</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="n">TagService</span>
+<span class="p">}</span>
+
+<span class="o">//</span> <span class="n">TODO</span><span class="p">(</span><span class="n">stevvooe</span><span class="p">):</span> <span class="n">Must</span> <span class="n">add</span> <span class="n">close</span> <span class="n">methods</span> <span class="n">to</span> <span class="nb">all</span> <span class="n">these</span><span class="o">.</span> <span class="n">May</span> <span class="n">want</span> <span class="n">to</span> <span class="n">change</span> <span class="n">the</span>
+<span class="o">//</span> <span class="n">way</span> <span class="n">instances</span> <span class="n">are</span> <span class="n">created</span> <span class="n">to</span> <span class="n">better</span> <span class="n">reflect</span> <span class="n">internal</span> <span class="n">dependency</span>
+<span class="o">//</span> <span class="n">relationships</span><span class="o">.</span>
+</code></pre></div>
+
+{% endblock %}

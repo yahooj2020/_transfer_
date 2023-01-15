@@ -1,0 +1,192 @@
+{% extends "docker-ce-template.html" %} 
+{% block body %} 
+
+<div><a class="previous"  style="text-align: left;" href="/detail/docker-ce-vmcompute.go.html">Previous : vmcompute.go</a>&nbsp<a class="next"   style="text-align: right;" href="/detail/docker-ce-baselayer.go.html">Next : baselayer.go</a></div><br>
+<div class="codehilite"><pre><span></span><code><span class="n">package</span> <span class="n">container</span> <span class="o">//</span> <span class="kn">import</span> <span class="s2">&quot;github.com/docker/docker/container&quot;</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+    <span class="s2">&quot;os&quot;</span>
+    <span class="s2">&quot;path/filepath&quot;</span>
+    <span class="s2">&quot;testing&quot;</span>
+
+    <span class="s2">&quot;github.com/docker/docker/api/types&quot;</span>
+    <span class="n">containertypes</span> <span class="s2">&quot;github.com/docker/docker/api/types/container&quot;</span>
+    <span class="s2">&quot;github.com/google/uuid&quot;</span>
+    <span class="s2">&quot;gotest.tools/v3/assert&quot;</span>
+    <span class="ow">is</span> <span class="s2">&quot;gotest.tools/v3/assert/cmp&quot;</span>
+<span class="p">)</span>
+
+<span class="n">var</span> <span class="n">root</span> <span class="n">string</span>
+
+<span class="n">func</span> <span class="n">TestMain</span><span class="p">(</span><span class="n">m</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">M</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">var</span> <span class="n">err</span> <span class="n">error</span>
+    <span class="n">root</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">MkdirTemp</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;docker-container-test-&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="p">{</span>
+        <span class="n">panic</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="n">defer</span> <span class="n">os</span><span class="o">.</span><span class="n">RemoveAll</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+
+    <span class="n">os</span><span class="o">.</span><span class="n">Exit</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">Run</span><span class="p">())</span>
+<span class="p">}</span>
+
+<span class="n">func</span> <span class="n">newContainer</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">*</span><span class="n">Container</span> <span class="p">{</span>
+    <span class="n">var</span> <span class="p">(</span>
+        <span class="nb">id</span>    <span class="o">=</span> <span class="n">uuid</span><span class="o">.</span><span class="n">New</span><span class="p">()</span><span class="o">.</span><span class="n">String</span><span class="p">()</span>
+        <span class="n">cRoot</span> <span class="o">=</span> <span class="n">filepath</span><span class="o">.</span><span class="n">Join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="nb">id</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">MkdirAll</span><span class="p">(</span><span class="n">cRoot</span><span class="p">,</span> <span class="mi">0755</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="n">c</span> <span class="o">:=</span> <span class="n">NewBaseContainer</span><span class="p">(</span><span class="nb">id</span><span class="p">,</span> <span class="n">cRoot</span><span class="p">)</span>
+    <span class="n">c</span><span class="o">.</span><span class="n">HostConfig</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">containertypes</span><span class="o">.</span><span class="n">HostConfig</span><span class="p">{}</span>
+    <span class="k">return</span> <span class="n">c</span>
+<span class="p">}</span>
+
+<span class="n">func</span> <span class="n">TestViewSaveDelete</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">db</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">NewViewDB</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="n">c</span> <span class="o">:=</span> <span class="n">newContainer</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">c</span><span class="o">.</span><span class="n">CheckpointTo</span><span class="p">(</span><span class="n">db</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">db</span><span class="o">.</span><span class="n">Delete</span><span class="p">(</span><span class="n">c</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="n">func</span> <span class="n">TestViewAll</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">var</span> <span class="p">(</span>
+        <span class="n">db</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">NewViewDB</span><span class="p">()</span>
+        <span class="n">one</span>   <span class="o">=</span> <span class="n">newContainer</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="n">two</span>   <span class="o">=</span> <span class="n">newContainer</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">one</span><span class="o">.</span><span class="n">Pid</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">one</span><span class="o">.</span><span class="n">CheckpointTo</span><span class="p">(</span><span class="n">db</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="n">two</span><span class="o">.</span><span class="n">Pid</span> <span class="o">=</span> <span class="mi">20</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">two</span><span class="o">.</span><span class="n">CheckpointTo</span><span class="p">(</span><span class="n">db</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="nb">all</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">db</span><span class="o">.</span><span class="n">Snapshot</span><span class="p">()</span><span class="o">.</span><span class="n">All</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">l</span> <span class="o">:=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">all</span><span class="p">);</span> <span class="n">l</span> <span class="o">!=</span> <span class="mi">2</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatalf</span><span class="p">(</span><span class="s2">&quot;expected 2 items, got </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">l</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="n">byID</span> <span class="o">:=</span> <span class="n">make</span><span class="p">(</span><span class="nb">map</span><span class="p">[</span><span class="n">string</span><span class="p">]</span><span class="n">Snapshot</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="o">:=</span> <span class="nb">range</span> <span class="nb">all</span> <span class="p">{</span>
+        <span class="n">byID</span><span class="p">[</span><span class="nb">all</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">ID</span><span class="p">]</span> <span class="o">=</span> <span class="nb">all</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">s</span><span class="p">,</span> <span class="n">ok</span> <span class="o">:=</span> <span class="n">byID</span><span class="p">[</span><span class="n">one</span><span class="o">.</span><span class="n">ID</span><span class="p">];</span> <span class="err">!</span><span class="n">ok</span> <span class="o">||</span> <span class="n">s</span><span class="o">.</span><span class="n">Pid</span> <span class="o">!=</span> <span class="mi">10</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatalf</span><span class="p">(</span><span class="s2">&quot;expected something different with for id=</span><span class="si">%s</span><span class="s2">: %v&quot;</span><span class="p">,</span> <span class="n">one</span><span class="o">.</span><span class="n">ID</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">s</span><span class="p">,</span> <span class="n">ok</span> <span class="o">:=</span> <span class="n">byID</span><span class="p">[</span><span class="n">two</span><span class="o">.</span><span class="n">ID</span><span class="p">];</span> <span class="err">!</span><span class="n">ok</span> <span class="o">||</span> <span class="n">s</span><span class="o">.</span><span class="n">Pid</span> <span class="o">!=</span> <span class="mi">20</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatalf</span><span class="p">(</span><span class="s2">&quot;expected something different with for id=</span><span class="si">%s</span><span class="s2">: %v&quot;</span><span class="p">,</span> <span class="n">two</span><span class="o">.</span><span class="n">ID</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="n">func</span> <span class="n">TestViewGet</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">var</span> <span class="p">(</span>
+        <span class="n">db</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">NewViewDB</span><span class="p">()</span>
+        <span class="n">one</span>   <span class="o">=</span> <span class="n">newContainer</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">one</span><span class="o">.</span><span class="n">ImageID</span> <span class="o">=</span> <span class="s2">&quot;some-image-123&quot;</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">one</span><span class="o">.</span><span class="n">CheckpointTo</span><span class="p">(</span><span class="n">db</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="n">s</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">db</span><span class="o">.</span><span class="n">Snapshot</span><span class="p">()</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">one</span><span class="o">.</span><span class="n">ID</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">s</span> <span class="o">==</span> <span class="n">nil</span> <span class="o">||</span> <span class="n">s</span><span class="o">.</span><span class="n">ImageID</span> <span class="o">!=</span> <span class="s2">&quot;some-image-123&quot;</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatalf</span><span class="p">(</span><span class="s2">&quot;expected ImageID=some-image-123. Got: %v&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="n">func</span> <span class="n">TestNames</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">db</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">NewViewDB</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">ReserveName</span><span class="p">(</span><span class="s2">&quot;name1&quot;</span><span class="p">,</span> <span class="s2">&quot;containerid1&quot;</span><span class="p">))</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">ReserveName</span><span class="p">(</span><span class="s2">&quot;name1&quot;</span><span class="p">,</span> <span class="s2">&quot;containerid1&quot;</span><span class="p">))</span> <span class="o">//</span> <span class="n">idempotent</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">ReserveName</span><span class="p">(</span><span class="s2">&quot;name2&quot;</span><span class="p">,</span> <span class="s2">&quot;containerid2&quot;</span><span class="p">))</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="ow">is</span><span class="o">.</span><span class="n">Error</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">ReserveName</span><span class="p">(</span><span class="s2">&quot;name2&quot;</span><span class="p">,</span> <span class="s2">&quot;containerid3&quot;</span><span class="p">),</span> <span class="n">ErrNameReserved</span><span class="o">.</span><span class="n">Error</span><span class="p">()))</span>
+
+    <span class="o">//</span> <span class="n">Releasing</span> <span class="n">a</span> <span class="n">name</span> <span class="n">allows</span> <span class="n">the</span> <span class="n">name</span> <span class="n">to</span> <span class="n">point</span> <span class="n">to</span> <span class="n">something</span> <span class="k">else</span> <span class="n">later</span><span class="o">.</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">ReleaseName</span><span class="p">(</span><span class="s2">&quot;name2&quot;</span><span class="p">))</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">ReserveName</span><span class="p">(</span><span class="s2">&quot;name2&quot;</span><span class="p">,</span> <span class="s2">&quot;containerid3&quot;</span><span class="p">))</span>
+
+    <span class="n">view</span> <span class="o">:=</span> <span class="n">db</span><span class="o">.</span><span class="n">Snapshot</span><span class="p">()</span>
+
+    <span class="nb">id</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">view</span><span class="o">.</span><span class="n">GetID</span><span class="p">(</span><span class="s2">&quot;name1&quot;</span><span class="p">)</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="ow">is</span><span class="o">.</span><span class="n">Equal</span><span class="p">(</span><span class="s2">&quot;containerid1&quot;</span><span class="p">,</span> <span class="nb">id</span><span class="p">))</span>
+
+    <span class="nb">id</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">GetID</span><span class="p">(</span><span class="s2">&quot;name2&quot;</span><span class="p">)</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="ow">is</span><span class="o">.</span><span class="n">Equal</span><span class="p">(</span><span class="s2">&quot;containerid3&quot;</span><span class="p">,</span> <span class="nb">id</span><span class="p">))</span>
+
+    <span class="n">_</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">GetID</span><span class="p">(</span><span class="s2">&quot;notreserved&quot;</span><span class="p">)</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="ow">is</span><span class="o">.</span><span class="n">Error</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="n">ErrNameNotReserved</span><span class="o">.</span><span class="n">Error</span><span class="p">()))</span>
+
+    <span class="o">//</span> <span class="n">Releasing</span> <span class="ow">and</span> <span class="n">re</span><span class="o">-</span><span class="n">reserving</span> <span class="n">a</span> <span class="n">name</span> <span class="n">doesn</span><span class="s1">&#39;t affect the snapshot.</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">ReleaseName</span><span class="p">(</span><span class="s2">&quot;name2&quot;</span><span class="p">))</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">ReserveName</span><span class="p">(</span><span class="s2">&quot;name2&quot;</span><span class="p">,</span> <span class="s2">&quot;containerid4&quot;</span><span class="p">))</span>
+
+    <span class="nb">id</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">GetID</span><span class="p">(</span><span class="s2">&quot;name1&quot;</span><span class="p">)</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="ow">is</span><span class="o">.</span><span class="n">Equal</span><span class="p">(</span><span class="s2">&quot;containerid1&quot;</span><span class="p">,</span> <span class="nb">id</span><span class="p">))</span>
+
+    <span class="nb">id</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">GetID</span><span class="p">(</span><span class="s2">&quot;name2&quot;</span><span class="p">)</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="ow">is</span><span class="o">.</span><span class="n">Equal</span><span class="p">(</span><span class="s2">&quot;containerid3&quot;</span><span class="p">,</span> <span class="nb">id</span><span class="p">))</span>
+
+    <span class="o">//</span> <span class="n">GetAllNames</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="ow">is</span><span class="o">.</span><span class="n">DeepEqual</span><span class="p">(</span><span class="nb">map</span><span class="p">[</span><span class="n">string</span><span class="p">][]</span><span class="n">string</span><span class="p">{</span><span class="s2">&quot;containerid1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;name1&quot;</span><span class="p">},</span> <span class="s2">&quot;containerid3&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;name2&quot;</span><span class="p">}},</span> <span class="n">view</span><span class="o">.</span><span class="n">GetAllNames</span><span class="p">()))</span>
+
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">ReserveName</span><span class="p">(</span><span class="s2">&quot;name3&quot;</span><span class="p">,</span> <span class="s2">&quot;containerid1&quot;</span><span class="p">))</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">ReserveName</span><span class="p">(</span><span class="s2">&quot;name4&quot;</span><span class="p">,</span> <span class="s2">&quot;containerid1&quot;</span><span class="p">))</span>
+
+    <span class="n">view</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Snapshot</span><span class="p">()</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="ow">is</span><span class="o">.</span><span class="n">DeepEqual</span><span class="p">(</span><span class="nb">map</span><span class="p">[</span><span class="n">string</span><span class="p">][]</span><span class="n">string</span><span class="p">{</span><span class="s2">&quot;containerid1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;name1&quot;</span><span class="p">,</span> <span class="s2">&quot;name3&quot;</span><span class="p">,</span> <span class="s2">&quot;name4&quot;</span><span class="p">},</span> <span class="s2">&quot;containerid4&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;name2&quot;</span><span class="p">}},</span> <span class="n">view</span><span class="o">.</span><span class="n">GetAllNames</span><span class="p">()))</span>
+
+    <span class="o">//</span> <span class="n">Release</span> <span class="n">containerid1</span><span class="s1">&#39;s names with Delete even though no container exists</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">Delete</span><span class="p">(</span><span class="o">&amp;</span><span class="n">Container</span><span class="p">{</span><span class="n">ID</span><span class="p">:</span> <span class="s2">&quot;containerid1&quot;</span><span class="p">}))</span>
+
+    <span class="o">//</span> <span class="n">Reusing</span> <span class="n">one</span> <span class="n">of</span> <span class="n">those</span> <span class="n">names</span> <span class="n">should</span> <span class="n">work</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">ReserveName</span><span class="p">(</span><span class="s2">&quot;name1&quot;</span><span class="p">,</span> <span class="s2">&quot;containerid4&quot;</span><span class="p">))</span>
+    <span class="n">view</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Snapshot</span><span class="p">()</span>
+    <span class="k">assert</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="ow">is</span><span class="o">.</span><span class="n">DeepEqual</span><span class="p">(</span><span class="nb">map</span><span class="p">[</span><span class="n">string</span><span class="p">][]</span><span class="n">string</span><span class="p">{</span><span class="s2">&quot;containerid4&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;name1&quot;</span><span class="p">,</span> <span class="s2">&quot;name2&quot;</span><span class="p">}},</span> <span class="n">view</span><span class="o">.</span><span class="n">GetAllNames</span><span class="p">()))</span>
+<span class="p">}</span>
+
+<span class="o">//</span> <span class="n">Test</span> <span class="n">case</span> <span class="k">for</span> <span class="n">GitHub</span> <span class="n">issue</span> <span class="mi">35920</span>
+<span class="n">func</span> <span class="n">TestViewWithHealthCheck</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">var</span> <span class="p">(</span>
+        <span class="n">db</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">NewViewDB</span><span class="p">()</span>
+        <span class="n">one</span>   <span class="o">=</span> <span class="n">newContainer</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">one</span><span class="o">.</span><span class="n">Health</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">Health</span><span class="p">{</span>
+        <span class="n">Health</span><span class="p">:</span> <span class="n">types</span><span class="o">.</span><span class="n">Health</span><span class="p">{</span>
+            <span class="n">Status</span><span class="p">:</span> <span class="s2">&quot;starting&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">one</span><span class="o">.</span><span class="n">CheckpointTo</span><span class="p">(</span><span class="n">db</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="n">s</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">db</span><span class="o">.</span><span class="n">Snapshot</span><span class="p">()</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">one</span><span class="o">.</span><span class="n">ID</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">s</span> <span class="o">==</span> <span class="n">nil</span> <span class="o">||</span> <span class="n">s</span><span class="o">.</span><span class="n">Health</span> <span class="o">!=</span> <span class="s2">&quot;starting&quot;</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Fatalf</span><span class="p">(</span><span class="s2">&quot;expected Health=starting. Got: %+v&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+{% endblock %}

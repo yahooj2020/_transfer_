@@ -1,0 +1,64 @@
+{% extends "docker-ce-template.html" %} 
+{% block body %} 
+
+<div><a class="previous"  style="text-align: left;" href="/detail/docker-ce-server_reporter.go.html">Previous : server_reporter.go</a>&nbsp<a class="next"   style="text-align: right;" href="/detail/docker-ce-catalog.go.html">Next : catalog.go</a></div><br>
+<div class="codehilite"><pre><span></span><code><span class="n">package</span> <span class="n">client</span> <span class="o">//</span> <span class="kn">import</span> <span class="s2">&quot;github.com/docker/docker/client&quot;</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+    <span class="s2">&quot;context&quot;</span>
+    <span class="s2">&quot;net/url&quot;</span>
+
+    <span class="s2">&quot;github.com/docker/docker/api/types&quot;</span>
+<span class="p">)</span>
+
+<span class="o">//</span> <span class="n">ContainerAttach</span> <span class="n">attaches</span> <span class="n">a</span> <span class="n">connection</span> <span class="n">to</span> <span class="n">a</span> <span class="n">container</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">server</span><span class="o">.</span>
+<span class="o">//</span> <span class="n">It</span> <span class="n">returns</span> <span class="n">a</span> <span class="n">types</span><span class="o">.</span><span class="n">HijackedConnection</span> <span class="k">with</span> <span class="n">the</span> <span class="n">hijacked</span> <span class="n">connection</span>
+<span class="o">//</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">a</span> <span class="n">reader</span> <span class="n">to</span> <span class="n">get</span> <span class="n">output</span><span class="o">.</span> <span class="n">It</span><span class="s1">&#39;s up to the called to close</span>
+<span class="o">//</span> <span class="n">the</span> <span class="n">hijacked</span> <span class="n">connection</span> <span class="n">by</span> <span class="n">calling</span> <span class="n">types</span><span class="o">.</span><span class="n">HijackedResponse</span><span class="o">.</span><span class="n">Close</span><span class="o">.</span>
+<span class="o">//</span>
+<span class="o">//</span> <span class="n">The</span> <span class="n">stream</span> <span class="nb">format</span> <span class="n">on</span> <span class="n">the</span> <span class="n">response</span> <span class="n">will</span> <span class="n">be</span> <span class="ow">in</span> <span class="n">one</span> <span class="n">of</span> <span class="n">two</span> <span class="n">formats</span><span class="p">:</span>
+<span class="o">//</span>
+<span class="o">//</span> <span class="n">If</span> <span class="n">the</span> <span class="n">container</span> <span class="ow">is</span> <span class="n">using</span> <span class="n">a</span> <span class="n">TTY</span><span class="p">,</span> <span class="n">there</span> <span class="ow">is</span> <span class="n">only</span> <span class="n">a</span> <span class="n">single</span> <span class="n">stream</span> <span class="p">(</span><span class="n">stdout</span><span class="p">),</span> <span class="ow">and</span>
+<span class="o">//</span> <span class="n">data</span> <span class="ow">is</span> <span class="n">copied</span> <span class="n">directly</span> <span class="kn">from</span> <span class="nn">the</span> <span class="n">container</span> <span class="n">output</span> <span class="n">stream</span><span class="p">,</span> <span class="n">no</span> <span class="n">extra</span>
+<span class="o">//</span> <span class="n">multiplexing</span> <span class="ow">or</span> <span class="n">headers</span><span class="o">.</span>
+<span class="o">//</span>
+<span class="o">//</span> <span class="n">If</span> <span class="n">the</span> <span class="n">container</span> <span class="ow">is</span> <span class="o">*</span><span class="ow">not</span><span class="o">*</span> <span class="n">using</span> <span class="n">a</span> <span class="n">TTY</span><span class="p">,</span> <span class="n">streams</span> <span class="k">for</span> <span class="n">stdout</span> <span class="ow">and</span> <span class="n">stderr</span> <span class="n">are</span>
+<span class="o">//</span> <span class="n">multiplexed</span><span class="o">.</span>
+<span class="o">//</span> <span class="n">The</span> <span class="nb">format</span> <span class="n">of</span> <span class="n">the</span> <span class="n">multiplexed</span> <span class="n">stream</span> <span class="ow">is</span> <span class="k">as</span> <span class="n">follows</span><span class="p">:</span>
+<span class="o">//</span>
+<span class="o">//</span>    <span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="n">byte</span><span class="p">{</span><span class="n">STREAM_TYPE</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">SIZE1</span><span class="p">,</span> <span class="n">SIZE2</span><span class="p">,</span> <span class="n">SIZE3</span><span class="p">,</span> <span class="n">SIZE4</span><span class="p">}[]</span><span class="n">byte</span><span class="p">{</span><span class="n">OUTPUT</span><span class="p">}</span>
+<span class="o">//</span>
+<span class="o">//</span> <span class="n">STREAM_TYPE</span> <span class="n">can</span> <span class="n">be</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">stdout</span> <span class="ow">and</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">stderr</span>
+<span class="o">//</span>
+<span class="o">//</span> <span class="n">SIZE1</span><span class="p">,</span> <span class="n">SIZE2</span><span class="p">,</span> <span class="n">SIZE3</span><span class="p">,</span> <span class="ow">and</span> <span class="n">SIZE4</span> <span class="n">are</span> <span class="n">four</span> <span class="nb">bytes</span> <span class="n">of</span> <span class="n">uint32</span> <span class="n">encoded</span> <span class="k">as</span> <span class="n">big</span> <span class="n">endian</span><span class="o">.</span>
+<span class="o">//</span> <span class="n">This</span> <span class="ow">is</span> <span class="n">the</span> <span class="n">size</span> <span class="n">of</span> <span class="n">OUTPUT</span><span class="o">.</span>
+<span class="o">//</span>
+<span class="o">//</span> <span class="n">You</span> <span class="n">can</span> <span class="n">use</span> <span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">docker</span><span class="o">/</span><span class="n">docker</span><span class="o">/</span><span class="n">pkg</span><span class="o">/</span><span class="n">stdcopy</span><span class="o">.</span><span class="n">StdCopy</span> <span class="n">to</span> <span class="n">demultiplex</span> <span class="n">this</span>
+<span class="o">//</span> <span class="n">stream</span><span class="o">.</span>
+<span class="n">func</span> <span class="p">(</span><span class="n">cli</span> <span class="o">*</span><span class="n">Client</span><span class="p">)</span> <span class="n">ContainerAttach</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">container</span> <span class="n">string</span><span class="p">,</span> <span class="n">options</span> <span class="n">types</span><span class="o">.</span><span class="n">ContainerAttachOptions</span><span class="p">)</span> <span class="p">(</span><span class="n">types</span><span class="o">.</span><span class="n">HijackedResponse</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">query</span> <span class="o">:=</span> <span class="n">url</span><span class="o">.</span><span class="n">Values</span><span class="p">{}</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">Stream</span> <span class="p">{</span>
+        <span class="n">query</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="s2">&quot;stream&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">Stdin</span> <span class="p">{</span>
+        <span class="n">query</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="s2">&quot;stdin&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">Stdout</span> <span class="p">{</span>
+        <span class="n">query</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="s2">&quot;stdout&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">Stderr</span> <span class="p">{</span>
+        <span class="n">query</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="s2">&quot;stderr&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">DetachKeys</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span> <span class="p">{</span>
+        <span class="n">query</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="s2">&quot;detachKeys&quot;</span><span class="p">,</span> <span class="n">options</span><span class="o">.</span><span class="n">DetachKeys</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">Logs</span> <span class="p">{</span>
+        <span class="n">query</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="s2">&quot;logs&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">headers</span> <span class="o">:=</span> <span class="nb">map</span><span class="p">[</span><span class="n">string</span><span class="p">][]</span><span class="n">string</span><span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;text/plain&quot;</span><span class="p">}}</span>
+    <span class="k">return</span> <span class="n">cli</span><span class="o">.</span><span class="n">postHijacked</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="s2">&quot;/containers/&quot;</span><span class="o">+</span><span class="n">container</span><span class="o">+</span><span class="s2">&quot;/attach&quot;</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">nil</span><span class="p">,</span> <span class="n">headers</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+
+{% endblock %}

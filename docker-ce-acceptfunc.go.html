@@ -1,0 +1,20 @@
+{% extends "docker-ce-template.html" %} 
+{% block body %} 
+
+<div><a class="previous"  style="text-align: left;" href="/detail/docker-ce-windowsbuilds.go.html">Previous : windowsbuilds.go</a>&nbsp<a class="next"   style="text-align: right;" href="/detail/docker-ce-clientconfig.go.html">Next : clientconfig.go</a></div><br>
+<div class="codehilite"><pre><span></span><code><span class="o">//</span><span class="n">go</span><span class="p">:</span><span class="n">build</span> <span class="err">!</span><span class="n">linux</span>
+<span class="o">//</span> <span class="o">+</span><span class="n">build</span> <span class="err">!</span><span class="n">linux</span>
+
+<span class="n">package</span> <span class="n">daemon</span> <span class="o">//</span> <span class="kn">import</span> <span class="s2">&quot;github.com/docker/docker/daemon&quot;</span>
+
+<span class="n">func</span> <span class="n">ensureDefaultAppArmorProfile</span><span class="p">()</span> <span class="n">error</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">nil</span>
+<span class="p">}</span>
+
+<span class="o">//</span> <span class="n">DefaultApparmorProfile</span> <span class="n">returns</span> <span class="n">an</span> <span class="n">empty</span> <span class="n">string</span><span class="o">.</span>
+<span class="n">func</span> <span class="n">DefaultApparmorProfile</span><span class="p">()</span> <span class="n">string</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+{% endblock %}
