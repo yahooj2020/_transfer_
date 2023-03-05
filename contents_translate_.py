@@ -5,6 +5,8 @@ import os.path
 import sys
 import time
 
+
+
 from csb_config import *
 
 class CSBookProject(object):
@@ -68,6 +70,7 @@ class CSBookProject(object):
 
             def flush(self):
                 pass
+
         sys.stdout = Logger(translate_filename,path=path)
 
 
@@ -83,6 +86,7 @@ class CSBookProject(object):
     def read_txtfile_to_html(self,htmlname,textname):
 
         css_template_str = "<style>    #dir1    {background-color:#54aeff;}#dir2{color:#cf222e;}#dir3{color:#000000;}#dir4{color:#0969da;}</style>"
+        time.sleep(0.2)
         self.__writeinto_htmlfile(htmlname, css_template_str)
         big_list = []
         list_ret = self.__readDatafile(textname)
@@ -130,12 +134,10 @@ class CSBookProject(object):
 
 if __name__ == "__main__":
     # read dir--->file---->read----> write into html
-    path_info = os.path.join(os.getcwd(),"gin") #r"C:\CSBook\gin"
-    translate_filename = "trt"
+    path_info = os.path.join(os.getcwd(),pro_name_to_show) #r"C:\CSBook\gin"
     dd_ = copy.deepcopy(translate_filename)
-    html_filename = "trt.html"
     csb_project_instance = CSBookProject()
-    csb_project_instance.read_txtfile_to_html(html_filename, translate_filename)
-
+    csb_project_instance.make_print_to_file(path=os.getcwd())
+    csb_project_instance.linux_tree_list_dir(path_info)
 
 

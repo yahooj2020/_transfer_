@@ -18,8 +18,7 @@ bootstrap = Bootstrap()
 
 app = Flask(__name__)
 bootstrap.init_app(app)
-app.jinja_env.variable_start_string = '{['
-app.jinja_env.variable_end_string = ']}'
+
 
 
 @app.route("/<onetype>",methods=["GET","POST"])
@@ -45,10 +44,13 @@ def pagination_index(onetype):
     data = cur.fetchall()
     ## 按照星级排序
     data_list = []
+    # detail/pallets-flask-contents.html
+    # pallets/flask ----> detail/pallets-flask-contents.html
     for item in data:
          item["new_infos"] = item["infos"].split("https://github.com/")[1]
+         item["contents_url"] = "/detail/" + item["infos"].split("https://github.com/")[1].replace("/","-")+"-contents.html"
          data_list.append(item)
-    #
+
     # data_list_html = []
     #
     # for item in data_list:
@@ -78,7 +80,7 @@ def pagination_index(onetype):
 # ok
 @app.route("/")
 def homepage():
-    return render_template("homepage.html")
+    return render_template("csbook_hg.html")
 
 # 单一语言页面
 
@@ -90,7 +92,9 @@ def homepage():
 def file_detail(filename):
     return render_template("{0}".format(filename))
 
-
+@app.route("/test")
+def test():
+    return render_template("docker-ce-template.html")
 
 ### 路由管理
 if __name__ == '__main__':
