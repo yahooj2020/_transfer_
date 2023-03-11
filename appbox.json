@@ -1,0 +1,24 @@
+[
+    {
+      "app_name": "gin-vue-admin", 
+      "app_type": "后台管理", 
+      "backendport": "8080", 
+      "delete_flg": "0", 
+      "domain": "gin.vue.admin.itbenyou.com", 
+      "fontport": "8080", 
+      "id": 1, 
+      "others": null, 
+      "stack": "gin vue"
+    }, 
+    {
+      "app_name": "go-gin-api", 
+      "app_type": "代?生成", 
+      "backendport": "8080", 
+      "delete_flg": "0", 
+      "domain": "go.itbenyou.com", 
+      "fontport": "8080", 
+      "id": 2, 
+      "others": null, 
+      "stack": "gin vue"
+    }
+  ]
