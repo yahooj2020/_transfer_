@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>appbox</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
+<meta name="referrer" content="no-referrer">
     <link rel="stylesheet" href="http://cdn.bootcss.com/font-awesome/4.7.0/css/font-awesome.css">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css">
     <script src="http://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
@@ -18,7 +18,7 @@
 <div class="container" id="vueApp">
     <div class="row mx-auto w-75" style="margin-top: 20px">
         <div class="col-12 text-center">
-            <h3>App Box</h3>
+            <h3>App Box 🦉</h3>
         </div>
     </div>
     <div class="row mx-auto w-75" style="height: 15px"></div>
@@ -47,7 +47,7 @@
                 <thead class="thead-default">
                 <tr>
                     <th><input type="checkbox"></th>
-<!--                    <th>序号</th>-->
+                   <th>序号</th>
                     <th>应用名称</th>
                     <th>应用类型</th>
                     <th>域名</th>
@@ -60,10 +60,10 @@
                 </thead>
                 <tbody>
 
-                <tr v-for=" app  in apps">
+                <tr v-for=" (app,index)  in apps">
 
                     <td><input type="checkbox" :value="index" v-model="checkedRows"></td>
-<!--    (app,index)                 <td>{{index+1}}</td>-->
+                    <td>{{index+1}}</td>
                     <td>{{app.app_name}}</td>
                     <td>{{app.app_type}}</td>
                     <td>{{app.domain}}</td>
@@ -152,12 +152,14 @@
         data: {
             checkAll: false,
             checkedRows: [],
-            apps:[],
+            apps:"",
             newRow:{}
         },
         methods: {
             addRow: function () {
                 this.apps.push(this.newRow);
+                console.log(this.apps);
+                console.log(this.newRow);
                 this.newRow = {};
             },
             saveRows:function () {//保存表格数据
@@ -174,23 +176,49 @@
 
                 for(var i=0;i<this.checkedRows.length;i++){
                     var checkedRowIndex = this.checkedRows[i];
+                    console.log(this.checkedRows[i])
+                    axios.delete('/api/v1/todos/' +this.checkedRows[i])
+                    .then((res) => {
+                        this.reload();
+                        this.$notify({
+                            group: 'foo',
+                            type: 'info',
+                            text: '删除成功'
+                        });
+                    }).catch((error) => {
+                    console.error(error)
+                });
                     this.apps = $.grep(this.apps,function (app,j) {
                         return j != checkedRowIndex;
                     });
                 }
                 this.checkedRows = [];
+            },
+
+            getAllDT:function(){
+                axios.get('/api',{
+                    Headers:{
+                        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST,GET,PUT,DELETE",
+        "Access-Control-Allow-Headers": "Content-Type"
+                    }})
+                    .then((res) => {
+
+                        this.apps = res.data;
+  
+                    }).catch((error) => {
+                    console.error(error)
+                });
+            }
+},
+            mounted () {
+                        this.getAllDT()
+            }
 
 
+            
 
-  mounted () {
-    axios
-      .get('https://www.runoob.com/try/ajax/json_demo.json')
-      .then(response => (this.info = response))
-      .catch(function (error) { // 请求失败处理
-        console.log(error);
-    });
-  }
-}
+})
 </script>
 </body>
 
