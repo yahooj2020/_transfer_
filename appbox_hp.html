@@ -176,7 +176,8 @@
 
                 for(var i=0;i<this.checkedRows.length;i++){
                     var checkedRowIndex = this.checkedRows[i];
-                    console.log(this.checkedRows[i])
+                    let remove_id = this.apps[this.checkedRows[i]].id
+      
                     axios.delete('/api/v1/todos/' +this.checkedRows[i])
                     .then((res) => {
                         this.reload();
